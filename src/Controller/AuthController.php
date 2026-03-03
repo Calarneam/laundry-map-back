@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Entity\UserStatus;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -47,6 +48,9 @@ class AuthController extends AbstractController
             $data['password']
         );
         $user->setPassword($hashedPassword);
+        $user->setStatus(UserStatus::Pending);
+        $user->setCreatedAt(new \DateTimeImmutable());
+        $user->setUpdatedAt(new \DateTimeImmutable());
 
         // Validation
         $errors = $validator->validate($user);
@@ -70,7 +74,7 @@ class AuthController extends AbstractController
         ], Response::HTTP_CREATED);
     }
 
-    #[Route('/login_check', name: 'login_check', methods: ['POST'])]
+    #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
         // Cette méthode ne sera jamais appelée car le firewall intercepte la requête

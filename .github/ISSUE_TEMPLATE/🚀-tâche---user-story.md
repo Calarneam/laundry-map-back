@@ -22,4 +22,3 @@ assignees: ''
 
 ## 📝 Notes complémentaires
 *Screenshots, documentation API, ou contraintes particulières.*
-op la team
