@@ -1,28 +1,65 @@
 name: Deploy to Server
 
 on:
-  push:
-    branches:
-      - main
+    push:
+        branches:
+            - main
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+    deploy:
+        runs-on: ubuntu-latest
 
-    steps:
-      - name: Setup SSH Key
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+        steps:
+            - name: Setup SSH Key
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "${{ secrets.KEY }}" > ~/.ssh/deploy_key
+                  chmod 600 ~/.ssh/deploy_key
+                  ssh-keyscan -H "${{ secrets.HOST }}" >> ~/.ssh/known_hosts
 
-      - name: Deploy to server
-        run: |
-          ssh -i ~/.ssh/deploy_key -p ${{ secrets.PORT || 22 }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
-            cd /var/www/laundrymap-back
-            git reset --hard
-            git pull origin main
-            npm install
-            npm run build
-          EOF
+            - name: Deploy to server
+              id: perform_deploy
+              run: |
+                  ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.PORT || 22 }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
+                    cd /var/www/laundrymap-front
+                    git reset --hard
+                    git pull origin main
+                    npm install
+                    npm run build
+                  EOF
+
+            - name: Notify Discord on failure
+              if: always() 
+              env:
+                  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+                  PUSHER: ${{ github.actor }}
+                  BRANCH: ${{ github.ref_name }}
+                  COMMIT_SHA: ${{ github.sha }}
+                  RUN_ID: ${{ github.run_id }}
+              run: |
+                  SHORT_SHA="${COMMIT_SHA:0:7}"
+                  COMMIT_URL="https://github.com/${{ github.repository }}/commit/${COMMIT_SHA}"
+                  RUN_URL="https://github.com/${{ github.repository }}/actions/runs/${RUN_ID}"
+                  TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+                  MENTIONS="<@292347888187473920> <@654214579102023710> <@356873947771568132> <@353429345508786178>"
+
+                  cat > /tmp/discord-payload.json <<EOJSON
+                  {
+                    "content": "${MENTIONS}",
+                    "embeds": [{
+                      "title": "❌ Deploy Failed",
+                      "color": 15158332,
+                      "fields": [
+                        { "name": "Pushed by", "value": "**${PUSHER}**", "inline": true },
+                        { "name": "Branch", "value": "${BRANCH}", "inline": true },
+                        { "name": "Commit", "value": "[${SHORT_SHA}](${COMMIT_URL})", "inline": false },
+                        { "name": "Details", "value": "[Voir le workflow](${RUN_URL})", "inline": false }
+                      ],
+                      "timestamp": "${TIMESTAMP}"
+                    }]
+                  }
+                  EOJSON
+
+                  curl -s -H "Content-Type: application/json" \
+                       -d @/tmp/discord-payload.json \
+                       "$DISCORD_WEBHOOK"
