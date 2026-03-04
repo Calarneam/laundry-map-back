@@ -22,8 +22,8 @@ jobs:
               run: |
                   ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no -p ${{ secrets.PORT || 22 }} ${{ secrets.USERNAME }}@${{ secrets.HOST }} << 'EOF'
                     cd /var/www/laundrymap-back
-                    git reset --hard
-                    git pull origin main
+                    git fetch origin
+                    git reset --hard origin/main
                     composer install --no-dev --optimize-autoloader
                     php bin/console cache:clear --env=prod
                     php bin/console doctrine:migrations:migrate --no-interaction
