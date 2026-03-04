@@ -29,7 +29,7 @@ jobs:
                   EOF
 
             - name: Notify Discord on failure
-              if: always() 
+              if: failure()
               env:
                   DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
                   PUSHER: ${{ github.actor }}
