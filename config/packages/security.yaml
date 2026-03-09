@@ -9,32 +9,47 @@ security:
             entity:
                 class: App\Entity\User
                 property: email
+        app_admin_provider:
+            entity:
+                class: App\Entity\Administrator
+                property: email
+        chain_signin_provider:
+            chain:
+                providers: [app_user_provider, app_admin_provider]
 
     firewalls:
         dev:
             pattern: ^/(_profiler|_wdt|assets|build)/
             security: false
-        login:
-            pattern: ^/api/login
+        signin:
+            pattern: ^/api/signin
             stateless: true
+            provider: chain_signin_provider
             json_login:
-                check_path: /api/login
+                check_path: /api/signin
                 username_path: email
                 password_path: password
                 success_handler: lexik_jwt_authentication.handler.authentication_success
                 failure_handler: lexik_jwt_authentication.handler.authentication_failure
-        api:
+        user:
             pattern: ^/api
             stateless: true
+            provider: app_user_provider
+            jwt: ~
+        admin:
+            pattern: ^/api/admin
+            stateless: true
+            provider: app_admin_provider
             jwt: ~
         main:
             lazy: true
             provider: app_user_provider
 
+
     access_control:
-        - { path: ^/api/register, roles: PUBLIC_ACCESS }
-        - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/api/signup, roles: PUBLIC_ACCESS }
+        - { path: ^/api/signin, roles: PUBLIC_ACCESS }
+        - { path: ^/api, roles: [ROLE_USER, ROLE_ADMIN] }
 
 when@test:
     security:

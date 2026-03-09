@@ -3,10 +3,11 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatEquipmentRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\Equipment;
 
 #[ORM\Entity(repositoryClass: LaundromatEquipmentRepository::class)]
-#[ORM\Table(name: 'laundromat_equipment')]
 class LaundromatEquipment
 {
     #[ORM\Id]
@@ -24,14 +25,14 @@ class LaundromatEquipment
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
-    #[ORM\Column(length: 50, enumType: EquipmentType::class)]
-    private ?EquipmentType $type = null;
+    #[ORM\Column(enumType: Equipment::class, length: 50)]
+    private ?Equipment $type = null;
 
     #[ORM\Column]
     private ?int $capacity = null;
 
-    #[ORM\Column]
-    private ?float $price = null;
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+    private ?string $price = null;
 
     #[ORM\Column]
     private ?int $duration = null;
@@ -46,9 +47,10 @@ class LaundromatEquipment
         return $this->laundromat;
     }
 
-    public function setLaundromat(?Laundromat $laundromat): static
+    public function setLaundromat(Laundromat $laundromat): static
     {
         $this->laundromat = $laundromat;
+
         return $this;
     }
 
@@ -57,9 +59,10 @@ class LaundromatEquipment
         return $this->equipmentReference;
     }
 
-    public function setEquipmentReference(?int $equipmentReference): static
+    public function setEquipmentReference(int $equipmentReference): static
     {
         $this->equipmentReference = $equipmentReference;
+
         return $this;
     }
 
@@ -71,17 +74,19 @@ class LaundromatEquipment
     public function setName(string $name): static
     {
         $this->name = $name;
+
         return $this;
     }
 
-    public function getType(): ?EquipmentType
+    public function getType(): ?Equipment
     {
         return $this->type;
     }
 
-    public function setType(EquipmentType $type): static
+    public function setType(Equipment $type): static
     {
         $this->type = $type;
+        
         return $this;
     }
 
@@ -93,17 +98,19 @@ class LaundromatEquipment
     public function setCapacity(int $capacity): static
     {
         $this->capacity = $capacity;
+
         return $this;
     }
 
-    public function getPrice(): ?float
+    public function getPrice(): ?string
     {
         return $this->price;
     }
 
-    public function setPrice(float $price): static
+    public function setPrice(string $price): static
     {
         $this->price = $price;
+        
         return $this;
     }
 
@@ -114,7 +121,8 @@ class LaundromatEquipment
 
     public function setDuration(int $duration): static
     {
-        $this->duration = $duration;
+        $this->duration = $duration;    
+        
         return $this;
     }
 }

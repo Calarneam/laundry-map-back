@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\AddressRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: AddressRepository::class)]
@@ -25,17 +26,14 @@ class Address
     #[ORM\Column(length: 255)]
     private ?string $city = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 0)]
     private ?string $country = null;
 
-    #[ORM\Column(nullable: true)]
-    private ?float $latitude = null;
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0)]
+    private ?string $lattitude = null;
 
-    #[ORM\Column(nullable: true)]
-    private ?float $longitude = null;
-
-    #[ORM\Column(length: 50, enumType: GeolocationStatus::class)]
-    private ?GeolocationStatus $geolocationStatus = null;
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0)]
+    private ?string $longitude = null;
 
     public function getId(): ?int
     {
@@ -50,6 +48,7 @@ class Address
     public function setAddress(string $address): static
     {
         $this->address = $address;
+
         return $this;
     }
 
@@ -61,6 +60,7 @@ class Address
     public function setStreet(string $street): static
     {
         $this->street = $street;
+
         return $this;
     }
 
@@ -72,6 +72,7 @@ class Address
     public function setZipCode(int $zipCode): static
     {
         $this->zipCode = $zipCode;
+
         return $this;
     }
 
@@ -83,6 +84,7 @@ class Address
     public function setCity(string $city): static
     {
         $this->city = $city;
+
         return $this;
     }
 
@@ -94,39 +96,31 @@ class Address
     public function setCountry(string $country): static
     {
         $this->country = $country;
+
         return $this;
     }
 
-    public function getLatitude(): ?float
+    public function getLattitude(): ?string
     {
-        return $this->latitude;
+        return $this->lattitude;
     }
 
-    public function setLatitude(?float $latitude): static
+    public function setLattitude(string $lattitude): static
     {
-        $this->latitude = $latitude;
+        $this->lattitude = $lattitude;
+
         return $this;
     }
 
-    public function getLongitude(): ?float
+    public function getLongitude(): ?string
     {
         return $this->longitude;
     }
 
-    public function setLongitude(?float $longitude): static
+    public function setLongitude(string $longitude): static
     {
         $this->longitude = $longitude;
-        return $this;
-    }
 
-    public function getGeolocationStatus(): ?GeolocationStatus
-    {
-        return $this->geolocationStatus;
-    }
-
-    public function setGeolocationStatus(GeolocationStatus $geolocationStatus): static
-    {
-        $this->geolocationStatus = $geolocationStatus;
         return $this;
     }
 }

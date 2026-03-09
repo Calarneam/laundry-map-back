@@ -15,4 +15,29 @@ class LaundromatRatingReportRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, LaundromatRatingReport::class);
     }
+
+    //    /**
+    //     * @return LaundromatRatingReport[] Returns an array of LaundromatRatingReport objects
+    //     */
+    //    public function findByExampleField($value): array
+    //    {
+    //        return $this->createQueryBuilder('l')
+    //            ->andWhere('l.exampleField = :val')
+    //            ->setParameter('val', $value)
+    //            ->orderBy('l.id', 'ASC')
+    //            ->setMaxResults(10)
+    //            ->getQuery()
+    //            ->getResult()
+    //        ;
+    //    }
+
+    //    public function findOneBySomeField($value): ?LaundromatRatingReport
+    //    {
+    //        return $this->createQueryBuilder('l')
+    //            ->andWhere('l.exampleField = :val')
+    //            ->setParameter('val', $value)
+    //            ->getQuery()
+    //            ->getOneOrNullResult()
+    //        ;
+    //    }
 }

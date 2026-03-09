@@ -3,10 +3,11 @@
 namespace App\Entity;
 
 use App\Repository\ProfessionalInteractionHistoryRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\ProfessionalInteractionHistoryAction;
 
 #[ORM\Entity(repositoryClass: ProfessionalInteractionHistoryRepository::class)]
-#[ORM\Table(name: 'professional_interaction_history')]
 class ProfessionalInteractionHistory
 {
     #[ORM\Id]
@@ -14,22 +15,21 @@ class ProfessionalInteractionHistory
     #[ORM\Column]
     private ?int $id = null;
 
-    /** Utilisateur avec rôle admin (ROLE_ADMIN) ayant effectué l'action. */
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'administrator_id', referencedColumnName: 'id', nullable: false)]
-    private ?User $admin = null;
+    #[ORM\ManyToOne(targetEntity: Administrator::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Professional::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?Professional $professional = null;
 
-    #[ORM\Column(length: 100)]
-    private ?string $action = null;
+    #[ORM\Column(enumType: ProfessionalInteractionHistoryAction::class, length: 50)]
+    private ?ProfessionalInteractionHistoryAction $action = null;
 
     #[ORM\Column(length: 255)]
     private ?string $actionReason = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int
@@ -37,14 +37,15 @@ class ProfessionalInteractionHistory
         return $this->id;
     }
 
-    public function getAdmin(): ?User
+    public function getAdministrator(): ?Administrator
     {
-        return $this->admin;
+        return $this->administrator;
     }
 
-    public function setAdmin(?User $admin): static
+    public function setAdministrator(Administrator $administrator): static
     {
-        $this->admin = $admin;
+        $this->administrator = $administrator;
+
         return $this;
     }
 
@@ -53,20 +54,22 @@ class ProfessionalInteractionHistory
         return $this->professional;
     }
 
-    public function setProfessional(?Professional $professional): static
+    public function setProfessional(Professional $professional): static
     {
         $this->professional = $professional;
+
         return $this;
     }
 
-    public function getAction(): ?string
+    public function getAction(): ?ProfessionalInteractionHistoryAction
     {
         return $this->action;
     }
 
-    public function setAction(string $action): static
+    public function setAction(ProfessionalInteractionHistoryAction $action): static
     {
         $this->action = $action;
+
         return $this;
     }
 
@@ -78,6 +81,7 @@ class ProfessionalInteractionHistory
     public function setActionReason(string $actionReason): static
     {
         $this->actionReason = $actionReason;
+
         return $this;
     }
 
@@ -89,6 +93,7 @@ class ProfessionalInteractionHistory
     public function setDate(\DateTimeImmutable $date): static
     {
         $this->date = $date;
+
         return $this;
     }
 }

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Enum;
 
-enum ClosureDay: string
+enum Day: string
 {
     case Monday = 'monday';
     case Tuesday = 'tuesday';
