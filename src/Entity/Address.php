@@ -26,7 +26,7 @@ class Address
     #[ORM\Column(length: 255)]
     private ?string $city = null;
 
-    #[ORM\Column(length: 0)]
+    #[ORM\Column(length: 255)]
     private ?string $country = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0)]
