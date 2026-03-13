@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Entity;
+namespace App\Entity\Enum;
 
-enum UserPreferenceTheme: string
+enum Theme: string
 {
     case Light = 'light';
     case Dark = 'dark';

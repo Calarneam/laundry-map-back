@@ -4,27 +4,26 @@ namespace App\Entity;
 
 use App\Repository\UserInteractionHistoryRepository;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\UserInteractionAction;
 
 #[ORM\Entity(repositoryClass: UserInteractionHistoryRepository::class)]
-#[ORM\Table(name: 'user_interaction_history')]
 class UserInteractionHistory
 {
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
     private ?int $id = null;
-
-    /** Utilisateur avec rôle admin (ROLE_ADMIN) ayant effectué l'action. */
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'administrator_id', referencedColumnName: 'id', nullable: false)]
-    private ?User $admin = null;
+    
+    #[ORM\ManyToOne(targetEntity: Administrator::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
-    #[ORM\Column(length: 100)]
-    private ?string $action = null;
+    #[ORM\Column(enumType: UserInteractionAction::class)]
+    private ?UserInteractionAction $action = null;
 
     #[ORM\Column(length: 255)]
     private ?string $actionReason = null;
@@ -37,14 +36,15 @@ class UserInteractionHistory
         return $this->id;
     }
 
-    public function getAdmin(): ?User
+    public function getAdministrator(): ?Administrator
     {
-        return $this->admin;
+        return $this->administrator;
     }
 
-    public function setAdmin(?User $admin): static
+    public function setAdministrator(Administrator $administrator): static
     {
-        $this->admin = $admin;
+        $this->administrator = $administrator;
+
         return $this;
     }
 
@@ -53,20 +53,22 @@ class UserInteractionHistory
         return $this->user;
     }
 
-    public function setUser(?User $user): static
+    public function setUser(User $user): static
     {
         $this->user = $user;
+
         return $this;
     }
 
-    public function getAction(): ?string
+    public function getAction(): ?UserInteractionAction
     {
         return $this->action;
     }
 
-    public function setAction(string $action): static
+    public function setAction(UserInteractionAction $action): static
     {
         $this->action = $action;
+
         return $this;
     }
 
@@ -78,6 +80,7 @@ class UserInteractionHistory
     public function setActionReason(string $actionReason): static
     {
         $this->actionReason = $actionReason;
+
         return $this;
     }
 
@@ -89,6 +92,7 @@ class UserInteractionHistory
     public function setDate(\DateTimeImmutable $date): static
     {
         $this->date = $date;
+
         return $this;
     }
 }

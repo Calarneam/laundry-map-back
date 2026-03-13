@@ -3,7 +3,10 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
 
 #[ORM\Entity(repositoryClass: LaundromatRepository::class)]
 class Laundromat
@@ -17,18 +20,15 @@ class Laundromat
     #[ORM\JoinColumn(nullable: false)]
     private ?Professional $professional = null;
 
-    #[ORM\Column(length: 50, enumType: LaundromatStatus::class)]
-    private ?LaundromatStatus $status = null;
-
     #[ORM\Column(nullable: true)]
     private ?int $wiLineReference = null;
 
-    #[ORM\ManyToOne(targetEntity: Address::class)]
+    #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
     private ?Address $address = null;
 
-    #[ORM\ManyToOne(targetEntity: Media::class)]
-    #[ORM\JoinColumn(nullable: true)]
+    #[ORM\OneToOne(targetEntity: Media::class, cascade: ['persist', 'remove'])]
+    #[ORM\JoinColumn(nullable: false)]
     private ?Media $logo = null;
 
     #[ORM\Column(length: 255)]
@@ -37,34 +37,54 @@ class Laundromat
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $contactEmail = null;
 
-    #[ORM\Column(type: 'text', nullable: true)]
+    #[ORM\Column(type: Types::TEXT)]
     private ?string $description = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $addedDate = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $deletedAt = null;
 
-    #[ORM\ManyToMany(targetEntity: User::class, mappedBy: 'favoriteLaundromats')]
-    private \Doctrine\Common\Collections\Collection $favoritedByUsers;
+    #[ORM\OneToMany(targetEntity: LaundromatMedia::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $medias;
 
-    #[ORM\ManyToMany(targetEntity: Service::class, inversedBy: 'laundromats')]
+    #[ORM\ManyToMany(targetEntity: Service::class)]
     #[ORM\JoinTable(name: 'laundromat_service')]
-    private \Doctrine\Common\Collections\Collection $services;
+    #[ORM\JoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
+    #[ORM\InverseJoinColumn(name: 'service_id', referencedColumnName: 'id')]
+    private Collection $services;
 
-    #[ORM\ManyToMany(targetEntity: PaymentMethod::class, inversedBy: 'laundromats')]
-    #[ORM\JoinTable(name: 'laundromat_payment')]
-    private \Doctrine\Common\Collections\Collection $paymentMethods;
+    #[ORM\OneToMany(targetEntity: LaundromatClosure::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $closures;
+
+    #[ORM\OneToMany(targetEntity: LaundromatExceptionalClosure::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $exceptionalClosures;
+
+    #[ORM\ManyToMany(targetEntity: PaymentMethod::class)]
+    #[ORM\JoinTable(name: 'laundromat_payment_method')]
+    #[ORM\JoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
+    #[ORM\InverseJoinColumn(name: 'payment_method_id', referencedColumnName: 'id')]
+    private Collection $paymentMethods;
+
+    #[ORM\OneToMany(targetEntity: LaundromatRating::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $ratings;
+
+    #[ORM\OneToMany(targetEntity: LaundromatEquipment::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $equipments;
 
     public function __construct()
     {
-        $this->favoritedByUsers = new \Doctrine\Common\Collections\ArrayCollection();
-        $this->services = new \Doctrine\Common\Collections\ArrayCollection();
-        $this->paymentMethods = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->medias = new ArrayCollection();
+        $this->services = new ArrayCollection();
+        $this->closures = new ArrayCollection();
+        $this->exceptionalClosures = new ArrayCollection();
+        $this->paymentMethods = new ArrayCollection();
+        $this->ratings = new ArrayCollection();
+        $this->equipments = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -77,20 +97,10 @@ class Laundromat
         return $this->professional;
     }
 
-    public function setProfessional(?Professional $professional): static
+    public function setProfessional(Professional $professional): static
     {
         $this->professional = $professional;
-        return $this;
-    }
 
-    public function getStatus(): ?LaundromatStatus
-    {
-        return $this->status;
-    }
-
-    public function setStatus(LaundromatStatus $status): static
-    {
-        $this->status = $status;
         return $this;
     }
 
@@ -102,6 +112,7 @@ class Laundromat
     public function setWiLineReference(?int $wiLineReference): static
     {
         $this->wiLineReference = $wiLineReference;
+
         return $this;
     }
 
@@ -110,9 +121,10 @@ class Laundromat
         return $this->address;
     }
 
-    public function setAddress(?Address $address): static
+    public function setAddress(Address $address): static
     {
         $this->address = $address;
+
         return $this;
     }
 
@@ -121,9 +133,10 @@ class Laundromat
         return $this->logo;
     }
 
-    public function setLogo(?Media $logo): static
+    public function setLogo(Media $logo): static
     {
         $this->logo = $logo;
+
         return $this;
     }
 
@@ -135,6 +148,7 @@ class Laundromat
     public function setEstablishmentName(string $establishmentName): static
     {
         $this->establishmentName = $establishmentName;
+
         return $this;
     }
 
@@ -146,6 +160,7 @@ class Laundromat
     public function setContactEmail(?string $contactEmail): static
     {
         $this->contactEmail = $contactEmail;
+
         return $this;
     }
 
@@ -154,9 +169,10 @@ class Laundromat
         return $this->description;
     }
 
-    public function setDescription(?string $description): static
+    public function setDescription(string $description): static
     {
         $this->description = $description;
+
         return $this;
     }
 
@@ -168,6 +184,7 @@ class Laundromat
     public function setAddedDate(\DateTimeImmutable $addedDate): static
     {
         $this->addedDate = $addedDate;
+
         return $this;
     }
 
@@ -179,6 +196,7 @@ class Laundromat
     public function setUpdatedAt(\DateTimeImmutable $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
+
         return $this;
     }
 
@@ -190,59 +208,93 @@ class Laundromat
     public function setDeletedAt(?\DateTimeImmutable $deletedAt): static
     {
         $this->deletedAt = $deletedAt;
+
         return $this;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, User>
-     */
-    public function getFavoritedByUsers(): \Doctrine\Common\Collections\Collection
+    public function getMedias(): ?Collection
     {
-        return $this->favoritedByUsers;
+        return $this->medias;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, Service>
-     */
-    public function getServices(): \Doctrine\Common\Collections\Collection
+    public function setMedias(?Collection $medias): static
+    {
+        $this->medias = $medias;
+
+        return $this;
+    }
+
+    public function getServices(): ?Collection
     {
         return $this->services;
     }
 
-    public function addService(Service $service): static
+    public function setServices(?Collection $services): static
     {
-        if (!$this->services->contains($service)) {
-            $this->services->add($service);
-        }
+        $this->services = $services;
+
         return $this;
     }
 
-    public function removeService(Service $service): static
+    public function getClosures(): ?Collection
     {
-        $this->services->removeElement($service);
+        return $this->closures;
+
         return $this;
     }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, PaymentMethod>
-     */
-    public function getPaymentMethods(): \Doctrine\Common\Collections\Collection
+    public function setClosures(?Collection $closures): static
+    {
+        $this->closures = $closures;
+
+        return $this;
+    }
+
+    public function getExceptionalClosures(): ?Collection
+    {
+        return $this->exceptionalClosures;
+    }
+
+    public function setExceptionalClosures(?Collection $exceptionalClosures): static
+    {
+        $this->exceptionalClosures = $exceptionalClosures;
+
+        return $this;
+    }
+
+    public function getPaymentMethods(): ?Collection
     {
         return $this->paymentMethods;
     }
 
-    public function addPaymentMethod(PaymentMethod $paymentMethod): static
+    public function setPaymentMethods(?Collection $paymentMethods): static
     {
-        if (!$this->paymentMethods->contains($paymentMethod)) {
-            $this->paymentMethods->add($paymentMethod);
-        }
+        $this->paymentMethods = $paymentMethods;
+
         return $this;
     }
 
-    public function removePaymentMethod(PaymentMethod $paymentMethod): static
+    public function getRatings(): ?Collection
     {
-        $this->paymentMethods->removeElement($paymentMethod);
+        return $this->ratings;
+    }
+
+    public function setRatings(?Collection $ratings): static
+    {
+        $this->ratings = $ratings;
+
+        return $this;
+    }
+
+    public function getEquipments(): ?Collection
+    {
+        return $this->equipments;
+    }
+    
+    public function setEquipments(?Collection $equipments): static
+    {
+        $this->equipments = $equipments;
+
         return $this;
     }
 }
-

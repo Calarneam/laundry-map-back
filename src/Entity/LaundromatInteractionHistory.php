@@ -4,9 +4,10 @@ namespace App\Entity;
 
 use App\Repository\LaundromatInteractionHistoryRepository;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\LaundromatInteractionHistoryAction;
+use Doctrine\DBAL\Types\Types;
 
 #[ORM\Entity(repositoryClass: LaundromatInteractionHistoryRepository::class)]
-#[ORM\Table(name: 'laundromat_interaction_history')]
 class LaundromatInteractionHistory
 {
     #[ORM\Id]
@@ -14,22 +15,21 @@ class LaundromatInteractionHistory
     #[ORM\Column]
     private ?int $id = null;
 
-    /** Utilisateur avec rôle admin (ROLE_ADMIN) ayant effectué l'action. */
-    #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(name: 'administrator_id', referencedColumnName: 'id', nullable: false)]
-    private ?User $admin = null;
+    #[ORM\ManyToOne(targetEntity: Administrator::class)]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class)]
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 
-    #[ORM\Column(length: 100)]
-    private ?string $action = null;
+    #[ORM\Column(enumType: LaundromatInteractionHistoryAction::class, length: 50)]
+    private ?LaundromatInteractionHistoryAction $action = null;
 
     #[ORM\Column(length: 255)]
     private ?string $actionReason = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int
@@ -37,14 +37,15 @@ class LaundromatInteractionHistory
         return $this->id;
     }
 
-    public function getAdmin(): ?User
+    public function getAdministrator(): ?Administrator
     {
-        return $this->admin;
+        return $this->administrator;
     }
 
-    public function setAdmin(?User $admin): static
+    public function setAdministrator(Administrator $administrator): static
     {
-        $this->admin = $admin;
+        $this->administrator = $administrator;
+
         return $this;
     }
 
@@ -53,20 +54,22 @@ class LaundromatInteractionHistory
         return $this->laundromat;
     }
 
-    public function setLaundromat(?Laundromat $laundromat): static
+    public function setLaundromat(Laundromat $laundromat): static
     {
         $this->laundromat = $laundromat;
+
         return $this;
     }
 
-    public function getAction(): ?string
+    public function getAction(): ?LaundromatInteractionHistoryAction
     {
         return $this->action;
     }
 
-    public function setAction(string $action): static
+    public function setAction(LaundromatInteractionHistoryAction $action): static
     {
         $this->action = $action;
+
         return $this;
     }
 
@@ -78,6 +81,7 @@ class LaundromatInteractionHistory
     public function setActionReason(string $actionReason): static
     {
         $this->actionReason = $actionReason;
+
         return $this;
     }
 
@@ -89,6 +93,7 @@ class LaundromatInteractionHistory
     public function setDate(\DateTimeImmutable $date): static
     {
         $this->date = $date;
+
         return $this;
     }
 }

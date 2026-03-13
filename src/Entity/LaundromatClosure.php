@@ -3,11 +3,10 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatClosureRepository;
-use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\Day;
 
 #[ORM\Entity(repositoryClass: LaundromatClosureRepository::class)]
-#[ORM\Table(name: 'laundromat_closure')]
 class LaundromatClosure
 {
     #[ORM\Id]
@@ -19,8 +18,8 @@ class LaundromatClosure
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 
-    #[ORM\Column(length: 20, enumType: ClosureDay::class)]
-    private ?ClosureDay $day = null;
+    #[ORM\Column(enumType: Day::class, length: 50)]
+    private ?Day $day = null;
 
     #[ORM\Column]
     private ?\DateTimeImmutable $addedDate = null;
@@ -28,11 +27,11 @@ class LaundromatClosure
     #[ORM\Column]
     private ?\DateTimeImmutable $updatedAt = null;
 
-    #[ORM\Column(type: Types::TIME_MUTABLE)]
-    private ?\DateTimeInterface $startTime = null;
+    #[ORM\Column]
+    private ?\DateTimeImmutable $startTime = null;
 
-    #[ORM\Column(type: Types::TIME_MUTABLE)]
-    private ?\DateTimeInterface $endTime = null;
+    #[ORM\Column]
+    private ?\DateTimeImmutable $endTime = null;
 
     public function getId(): ?int
     {
@@ -44,20 +43,22 @@ class LaundromatClosure
         return $this->laundromat;
     }
 
-    public function setLaundromat(?Laundromat $laundromat): static
+    public function setLaundromat(Laundromat $laundromat): static
     {
         $this->laundromat = $laundromat;
+
         return $this;
     }
 
-    public function getDay(): ?ClosureDay
+    public function getDay(): ?Day
     {
         return $this->day;
     }
 
-    public function setDay(ClosureDay $day): static
+    public function setDay(Day $day): static
     {
         $this->day = $day;
+
         return $this;
     }
 
@@ -69,6 +70,7 @@ class LaundromatClosure
     public function setAddedDate(\DateTimeImmutable $addedDate): static
     {
         $this->addedDate = $addedDate;
+
         return $this;
     }
 
@@ -80,28 +82,31 @@ class LaundromatClosure
     public function setUpdatedAt(\DateTimeImmutable $updatedAt): static
     {
         $this->updatedAt = $updatedAt;
+
         return $this;
     }
 
-    public function getStartTime(): ?\DateTimeInterface
+    public function getStartTime(): ?\DateTimeImmutable
     {
         return $this->startTime;
     }
 
-    public function setStartTime(\DateTimeInterface $startTime): static
+    public function setStartTime(\DateTimeImmutable $startTime): static
     {
         $this->startTime = $startTime;
+
         return $this;
     }
 
-    public function getEndTime(): ?\DateTimeInterface
+    public function getEndTime(): ?\DateTimeImmutable
     {
         return $this->endTime;
     }
 
-    public function setEndTime(\DateTimeInterface $endTime): static
+    public function setEndTime(\DateTimeImmutable $endTime): static
     {
         $this->endTime = $endTime;
+
         return $this;
     }
 }

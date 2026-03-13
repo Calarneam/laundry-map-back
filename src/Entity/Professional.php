@@ -4,6 +4,10 @@ namespace App\Entity;
 
 use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Enum\ProfessionalStatus;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\DBAL\Types\Types;
 
 #[ORM\Entity(repositoryClass: ProfessionalRepository::class)]
 class Professional
@@ -13,7 +17,7 @@ class Professional
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\OneToOne(inversedBy: 'professional')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 
@@ -23,12 +27,19 @@ class Professional
     #[ORM\Column(length: 50, enumType: ProfessionalStatus::class)]
     private ?ProfessionalStatus $status = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $validationDate = null;
 
-    #[ORM\ManyToOne(targetEntity: Address::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
     private ?Address $address = null;
+
+    #[ORM\OneToMany(targetEntity: Laundromat::class, mappedBy: 'professional')]
+    private Collection $laundromats;
+
+    public function __construct()
+    {
+        $this->laundromats = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -40,9 +51,10 @@ class Professional
         return $this->user;
     }
 
-    public function setUser(?User $user): static
+    public function setUser(User $user): static
     {
         $this->user = $user;
+
         return $this;
     }
 
@@ -54,6 +66,7 @@ class Professional
     public function setSiren(int $siren): static
     {
         $this->siren = $siren;
+
         return $this;
     }
 
@@ -65,6 +78,7 @@ class Professional
     public function setStatus(ProfessionalStatus $status): static
     {
         $this->status = $status;
+
         return $this;
     }
 
@@ -76,6 +90,7 @@ class Professional
     public function setValidationDate(?\DateTimeImmutable $validationDate): static
     {
         $this->validationDate = $validationDate;
+
         return $this;
     }
 
@@ -84,9 +99,22 @@ class Professional
         return $this->address;
     }
 
-    public function setAddress(?Address $address): static
+    public function setAddress(Address $address): static
     {
         $this->address = $address;
+
+        return $this;
+    }
+
+    public function getLaundromats(): ?Collection
+    {
+        return $this->laundromats;
+    }
+
+    public function setLaundromats(?Collection $laundromats): static
+    {
+        $this->laundromats = $laundromats;
+
         return $this;
     }
 }

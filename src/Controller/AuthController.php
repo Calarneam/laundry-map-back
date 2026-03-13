@@ -3,9 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Entity\UserStatus;
+use App\Entity\Enum\UserStatus;
+use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Controller\AbstractApiController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,73 +15,74 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api', name: 'api_')]
-class AuthController extends AbstractController
+class AuthController extends AbstractApiController
 {
-    #[Route('/register', name: 'register', methods: ['POST'])]
-    public function register(
+    #[Route('/signup', name: 'signup', methods: ['POST'])]
+    public function signup(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
+        UserRepository $userRepository,
         EntityManagerInterface $entityManager,
         ValidatorInterface $validator
     ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
+        try {
+            $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email']) || !isset($data['password'])) {
+                return $this->json([
+                    'error' => 'Email et mot de passe requis'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            if ($existingUser) {
+                return $this->json([
+                    'error' => 'Cet email est déjà utilisé'
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $user = new User();
+            $user->setEmail($data['email']);
+
+            $hashedPassword = $passwordHasher->hashPassword(
+                $user,
+                $data['password']
+            );
+            $user->setPassword($hashedPassword);
+            $user->setStatus(UserStatus::Active);
+            $user->setCreatedAt(new \DateTimeImmutable());
+            $user->setUpdatedAt(new \DateTimeImmutable());
+
+            $errors = $validator->validate($user);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $entityManager->persist($user);
+            $entityManager->flush();
+
             return $this->json([
-                'error' => 'Email et mot de passe requis'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        // Vérifier si l'utilisateur existe déjà
-        $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']]);
-        if ($existingUser) {
+                'message' => 'Utilisateur créé avec succès',
+                'user' => [
+                    'email' => $user->getUserIdentifier(),
+                    'roles' => $user->getRoles()
+                ]
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
             return $this->json([
-                'error' => 'Cet email est déjà utilisé'
-            ], Response::HTTP_CONFLICT);
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        $user = new User();
-        $user->setEmail($data['email']);
-
-        // Hash le mot de passe
-        $hashedPassword = $passwordHasher->hashPassword(
-            $user,
-            $data['password']
-        );
-        $user->setPassword($hashedPassword);
-        $user->setStatus(UserStatus::Pending);
-        $user->setCreatedAt(new \DateTimeImmutable());
-        $user->setUpdatedAt(new \DateTimeImmutable());
-
-        // Validation
-        $errors = $validator->validate($user);
-        if (count($errors) > 0) {
-            $errorsString = (string) $errors;
-            return $this->json([
-                'error' => $errorsString
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $this->json([
-            'message' => 'Utilisateur créé avec succès',
-            'user' => [
-                'id' => $user->getId(),
-                'email' => $user->getEmail(),
-                'roles' => $user->getRoles()
-            ]
-        ], Response::HTTP_CREATED);
     }
 
-    #[Route('/login', name: 'login', methods: ['POST'])]
-    public function login(): JsonResponse
+    #[Route('/signin', name: 'signin', methods: ['POST'])]
+    public function signin(): JsonResponse
     {
-        // Cette méthode ne sera jamais appelée car le firewall intercepte la requête
-        // Elle est juste là pour la documentation de la route
         return $this->json([
-            'message' => 'Login endpoint - géré par le firewall'
+            'message' => 'Signin endpoint - géré par le firewall'
         ]);
     }
 
@@ -89,15 +91,8 @@ class AuthController extends AbstractController
     {
         $user = $this->getUser();
 
-        if (!$user) {
-            return $this->json([
-                'error' => 'Non authentifié'
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
         return $this->json([
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
+            'email' => $user->getUserIdentifier(),
             'roles' => $user->getRoles()
         ]);
     }
