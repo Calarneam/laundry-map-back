@@ -91,6 +91,22 @@ class AuthController extends AbstractApiController
         ]);
     }
 
+    #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
+    public function logout(): JsonResponse
+    {
+      $response = new JsonResponse(['message' => 'Déconnexion Réussie']);
+      $response->headers->clearCookie(
+        'BEARER',
+        '/',
+        null,
+        true,
+        true,
+        false,
+        'strict'
+      );
+      return $response;
+    }
+
     #[Route('/me', name: 'me', methods: ['GET'])]
     public function me(): JsonResponse
     {
