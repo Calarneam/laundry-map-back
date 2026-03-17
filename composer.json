@@ -11,6 +11,7 @@
         "doctrine/doctrine-migrations-bundle": "^3.7",
         "doctrine/orm": "^3.6.2",
         "lexik/jwt-authentication-bundle": "^3.2",
+        "nelmio/cors-bundle": "^2.6",
         "symfony/console": "7.4.*",
         "symfony/dotenv": "7.4.*",
         "symfony/flex": "^2.10",
@@ -71,7 +72,7 @@
         }
     },
     "require-dev": {
-        "doctrine/doctrine-fixtures-bundle": "^4.3",
+        "doctrine/doctrine-fixtures-bundle": "^4.3.1",
         "symfony/maker-bundle": "^1.66"
     }
 }

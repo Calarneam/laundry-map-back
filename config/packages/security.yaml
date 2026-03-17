@@ -21,12 +21,12 @@ security:
     dev:
       pattern: ^/(_profiler|_wdt|assets|build)/
       security: false
-    signin:
-      pattern: ^/api/signin
+    login:
+      pattern: ^/api/auth/login
       stateless: true
       provider: chain_signin_provider
       json_login:
-        check_path: /api/signin
+        check_path: /api/auth/login
         username_path: email
         password_path: password
         success_handler: lexik_jwt_authentication.handler.authentication_success
@@ -36,6 +36,8 @@ security:
       stateless: true
       provider: chain_signin_provider
       jwt: ~
+      logout:
+        path: api_logout
     admin:
       pattern: ^/api/admin
       stateless: true
@@ -46,8 +48,8 @@ security:
       provider: chain_signin_provider
 
   access_control:
-    - { path: ^/api/signup, roles: PUBLIC_ACCESS }
-    - { path: ^/api/signin, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
     - { path: ^/api, roles: [ROLE_USER, ROLE_ADMIN] }
 
 when@test:
