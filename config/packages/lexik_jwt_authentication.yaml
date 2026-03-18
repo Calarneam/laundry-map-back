@@ -8,7 +8,6 @@ lexik_jwt_authentication:
       BEARER:
         name: 'BEARER'
         lifetime: null # Utilise le token_ttl par défaut
-        samesite: 'strict'
         path: /
         domain: null
         secure: true 

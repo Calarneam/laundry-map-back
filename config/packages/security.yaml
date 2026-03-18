@@ -43,11 +43,11 @@ security:
       jwt: ~
 
   access_control:
-    - { path: ^/api, roles: [ROLE_USER, ROLE_ADMIN] }
     - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/logout, roles: IS_AUTHENTICATED_FULLY }
     - { path: ^/api/admin, roles: ROLE_ADMIN }
+    - { path: ^/api, roles: [ROLE_USER, ROLE_ADMIN] }
 
 when@test:
   security:

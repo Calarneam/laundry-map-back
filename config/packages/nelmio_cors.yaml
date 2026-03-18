@@ -8,7 +8,6 @@ nelmio_cors:
         max_age: 3600
         allow_credentials: true
     paths:
-        '^/': null
         '^/api/':
             allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
             allow_headers: ['*']
