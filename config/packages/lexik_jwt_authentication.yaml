@@ -7,17 +7,20 @@ lexik_jwt_authentication:
     set_cookies:
       BEARER:
         name: 'BEARER'
-        lifetime: null # Utilise le token_ttl par défaut
+        lifetime: null
+        samesite: lax
         path: /
         domain: null
-        secure: true 
+        secure: true
         httpOnly: true
 
     token_extractors:
-      cookie:
-        name: 'BEARER'
-      
       authorization_header:
         prefix: 'Bearer'
         name: 'Authorization'
+
+      cookie:
+        enabled: true
+        name: 'BEARER'
+      
 
