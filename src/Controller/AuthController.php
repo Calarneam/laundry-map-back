@@ -17,8 +17,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api', name: 'api_')]
 class AuthController extends AbstractApiController
 {
-    #[Route('/signup', name: 'signup', methods: ['POST'])]
-    public function signup(
+    #[Route('/auth/register', name: 'register', methods: ['POST'])]
+    public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
         UserRepository $userRepository,
@@ -42,6 +42,9 @@ class AuthController extends AbstractApiController
             }
 
             $user = new User();
+
+            $user->setFirstName($data['firstName']);
+            $user->setLastName($data['lastName']);
             $user->setEmail($data['email']);
 
             $hashedPassword = $passwordHasher->hashPassword(
@@ -68,6 +71,8 @@ class AuthController extends AbstractApiController
                 'message' => 'Utilisateur créé avec succès',
                 'user' => [
                     'email' => $user->getUserIdentifier(),
+                    'firstName' => $user->getFirstName(),
+                    'lastName' => $user->getLastName(),
                     'roles' => $user->getRoles()
                 ]
             ], Response::HTTP_CREATED);
@@ -78,12 +83,28 @@ class AuthController extends AbstractApiController
         }
     }
 
-    #[Route('/signin', name: 'signin', methods: ['POST'])]
-    public function signin(): JsonResponse
+    #[Route('/auth/login', name: 'login', methods: ['POST'])]
+    public function login(): JsonResponse
     {
         return $this->json([
-            'message' => 'Signin endpoint - géré par le firewall'
+            'message' => 'Login endpoint - géré par le firewall'
         ]);
+    }
+
+    #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
+    public function logout(): JsonResponse
+    {
+      $response = new JsonResponse(['message' => 'Déconnexion Réussie']);
+      $response->headers->clearCookie(
+        'BEARER',
+        '/',
+        null,
+        true,
+        true,
+        false,
+        'strict'
+      );
+      return $response;
     }
 
     #[Route('/me', name: 'me', methods: ['GET'])]
