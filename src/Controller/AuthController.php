@@ -3,7 +3,10 @@
 namespace App\Controller;
 
 use App\Entity\User;
+use App\Entity\Professional;
+use App\Entity\Address;
 use App\Entity\Enum\UserStatus;
+use App\Entity\Enum\ProfessionalStatus;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Controller\AbstractApiController;
@@ -75,6 +78,81 @@ class AuthController extends AbstractApiController
                     'lastName' => $user->getLastName(),
                     'roles' => $user->getRoles()
                 ]
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json([
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/auth/register/professional', name: 'register_professional', methods: ['POST'])]
+    public function registerProfessional(
+        Request $request,
+        UserPasswordHasherInterface $passwordHasher,
+        UserRepository $userRepository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+
+            if (!isset($data['email']) || !isset($data['password'])) {
+                return $this->json([
+                    'error' => 'Email et mot de passe requis'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            if ($existingUser) {
+                return $this->json([
+                    'error' => 'Cet email est déjà utilisé'
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $user = new User();
+            $professional = new Professional();
+            
+            $user->setProfessional($professional);
+            $user->setFirstName($data['firstName']);
+            $user->setLastName($data['lastName']);
+            $user->setEmail($data['email']);
+
+            $professional->setSiren($data['siren']);
+            $professional->setStatus(ProfessionalStatus::Pending);
+
+            $address = new Address();
+            $fullAddress = $data['address'] . ', ' . $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
+            $address->setAddress($fullAddress);
+            $address->setStreet($data['street']);
+            $address->setZipCode($data['zipCode']);
+            $address->setCity($data['city']);
+            $address->setCountry($data['country']);
+            $professional->setAddress($address);
+
+            $hashedPassword = $passwordHasher->hashPassword(
+                $user,
+                $data['password']
+            );
+            $user->setPassword($hashedPassword);
+            $user->setStatus(UserStatus::Active);
+            $user->setCreatedAt(new \DateTimeImmutable());
+            $user->setUpdatedAt(new \DateTimeImmutable());
+
+            $errors = $validator->validate($user);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $entityManager->persist($user);
+            $entityManager->flush();
+
+            return $this->json([
+                'message' => 'Professionnel en attente de validation',
+
             ], Response::HTTP_CREATED);
         } catch (\Exception $e) {
             return $this->json([

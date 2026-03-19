@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\AddressRepository;
+use App\Entity\Enum\GeolocationStatus;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
@@ -29,11 +30,14 @@ class Address
     #[ORM\Column(length: 255)]
     private ?string $country = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0)]
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
     private ?string $lattitude = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0)]
+    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
     private ?string $longitude = null;
+
+    #[ORM\Column(length: 50, enumType: GeolocationStatus::class, nullable: true)]
+    private ?GeolocationStatus $geolocationStatus = null;
 
     public function getId(): ?int
     {
@@ -120,6 +124,18 @@ class Address
     public function setLongitude(string $longitude): static
     {
         $this->longitude = $longitude;
+
+        return $this;
+    }
+
+    public function getGeolocationStatus(): ?GeolocationStatus
+    {
+        return $this->geolocationStatus;
+    }
+
+    public function setGeolocationStatus(GeolocationStatus $geolocationStatus): static
+    {
+        $this->geolocationStatus = $geolocationStatus;
 
         return $this;
     }
