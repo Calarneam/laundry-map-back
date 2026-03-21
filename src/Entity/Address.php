@@ -36,8 +36,8 @@ class Address
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
     private ?string $longitude = null;
 
-    #[ORM\Column(length: 50, enumType: GeolocationStatus::class, nullable: true)]
-    private ?GeolocationStatus $geolocationStatus = null;
+    #[ORM\Column(length: 50, enumType: GeolocationStatus::class)]
+    private ?GeolocationStatus $geolocationStatus;
 
     public function getId(): ?int
     {

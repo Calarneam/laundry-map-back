@@ -215,6 +215,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     {
         $this->professional = $professional;
 
+        if (null !== $professional && $professional->getUser() !== $this) {
+            $professional->setUser($this);
+        }
+
         return $this;
     }
 

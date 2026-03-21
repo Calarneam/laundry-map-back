@@ -24,6 +24,12 @@ class Professional
     #[ORM\Column]
     private ?int $siren = null;
 
+    #[ORM\Column(length: 255)]
+    private ?string $companyName = null;
+
+    #[ORM\Column(length: 10)]
+    private ?string $codeApe = null;
+
     #[ORM\Column(length: 50, enumType: ProfessionalStatus::class)]
     private ?ProfessionalStatus $status = null;
 
@@ -66,6 +72,30 @@ class Professional
     public function setSiren(int $siren): static
     {
         $this->siren = $siren;
+
+        return $this;
+    }
+
+    public function getCompanyName(): ?string
+    {
+        return $this->companyName;
+    }
+
+    public function setCompanyName(string $companyName): static
+    {
+        $this->companyName = $companyName;
+
+        return $this;
+    }
+
+    public function getCodeApe(): ?string
+    {
+        return $this->codeApe;
+    }
+
+    public function setCodeApe(string $codeApe): static
+    {
+        $this->codeApe = $codeApe;
 
         return $this;
     }

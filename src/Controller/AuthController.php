@@ -7,9 +7,12 @@ use App\Entity\Professional;
 use App\Entity\Address;
 use App\Entity\Enum\UserStatus;
 use App\Entity\Enum\ProfessionalStatus;
+use App\Entity\Enum\GeolocationStatus;
 use App\Repository\UserRepository;
+use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use App\Controller\AbstractApiController;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -33,14 +36,14 @@ class AuthController extends AbstractApiController
 
             if (!isset($data['email']) || !isset($data['password'])) {
                 return $this->json([
-                    'error' => 'Email et mot de passe requis'
+                    'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
             $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
-                    'error' => 'Cet email est déjà utilisé'
+                    'error' => 'api.messages.email_already_used'
                 ], Response::HTTP_CONFLICT);
             }
 
@@ -71,7 +74,7 @@ class AuthController extends AbstractApiController
             $entityManager->flush();
 
             return $this->json([
-                'message' => 'Utilisateur créé avec succès',
+                'message' => 'api.messages.user_created_successfully',
                 'user' => [
                     'email' => $user->getUserIdentifier(),
                     'firstName' => $user->getFirstName(),
@@ -86,48 +89,71 @@ class AuthController extends AbstractApiController
         }
     }
 
+    private function SirenIsExisting(string $siren, HttpClientInterface $httpClient): bool
+    {
+        $response = $httpClient->request('GET', 'https://recherche-entreprises.api.gouv.fr/search?q=' . $siren);
+        $data = $response->toArray();
+        if ($data['total_results'] > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
     #[Route('/auth/register/professional', name: 'register_professional', methods: ['POST'])]
     public function registerProfessional(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
         UserRepository $userRepository,
+        ProfessionalRepository $professionalRepository,
         EntityManagerInterface $entityManager,
-        ValidatorInterface $validator
+        ValidatorInterface $validator,
+        HttpClientInterface $httpClient
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
 
             if (!isset($data['email']) || !isset($data['password'])) {
                 return $this->json([
-                    'error' => 'Email et mot de passe requis'
+                    'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
             $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
-                    'error' => 'Cet email est déjà utilisé'
+                    'error' => 'api.messages.email_already_used'
                 ], Response::HTTP_CONFLICT);
             }
 
             $user = new User();
             $professional = new Professional();
-            
+
             $user->setProfessional($professional);
             $user->setFirstName($data['firstName']);
             $user->setLastName($data['lastName']);
             $user->setEmail($data['email']);
 
+            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
+            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
+                return $this->json([
+                    'error' => 'api.messages.siren_not_found_or_already_used'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
             $professional->setSiren($data['siren']);
+            $professional->setCompanyName($data['companyName']);
+            $professional->setCodeApe($data['codeApe']);
             $professional->setStatus(ProfessionalStatus::Pending);
 
             $address = new Address();
-            $fullAddress = $data['address'] . ', ' . $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
+            $fullAddress = $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
             $address->setAddress($fullAddress);
             $address->setStreet($data['street']);
             $address->setZipCode($data['zipCode']);
             $address->setCity($data['city']);
             $address->setCountry($data['country']);
+            $address->setGeolocationStatus(GeolocationStatus::Geolocated);
             $professional->setAddress($address);
 
             $hashedPassword = $passwordHasher->hashPassword(
@@ -151,7 +177,7 @@ class AuthController extends AbstractApiController
             $entityManager->flush();
 
             return $this->json([
-                'message' => 'Professionnel en attente de validation',
+                'message' => 'api.messages.professional_pending_validation',
 
             ], Response::HTTP_CREATED);
         } catch (\Exception $e) {
@@ -172,9 +198,18 @@ class AuthController extends AbstractApiController
     #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
     public function logout(): JsonResponse
     {
-      $response = new JsonResponse(['message' => 'Déconnexion Réussie']);
+      $response = new JsonResponse(['message' => 'api.messages.logout_successfully']);
       $response->headers->clearCookie(
         'BEARER',
+        '/',
+        null,
+        true,
+        true,
+        false,
+        'strict'
+      );
+      $response->headers->clearCookie(
+        'USER_ROLE',
         '/',
         null,
         true,
