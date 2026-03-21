@@ -23,6 +23,8 @@ class ProfessionalFixtures extends Fixture implements DependentFixtureInterface
         $professional1 = new Professional();
         $professional1->setUser($userPro);
         $professional1->setSiren(123456789);
+        $professional1->setCompanyName('Laverie Pro Demo');
+        $professional1->setCodeApe('9601A');
         $professional1->setStatus(ProfessionalStatus::Validated);
         $professional1->setValidationDate(new \DateTimeImmutable());
         $manager->persist($professional1);
@@ -32,6 +34,8 @@ class ProfessionalFixtures extends Fixture implements DependentFixtureInterface
         $professional2 = new Professional();
         $professional2->setUser($user2);
         $professional2->setSiren(987654321);
+        $professional2->setCompanyName('Pressing Test SARL');
+        $professional2->setCodeApe('9602A');
         $professional2->setStatus(ProfessionalStatus::Pending);
         $manager->persist($professional2);
         $user2->setProfessional($professional2);

@@ -2,9 +2,9 @@
 
 namespace App\Entity\Enum;
 
-enum ProfessionalStatus: string
+enum GeolocationStatus: string
 {
-    case Validated = 'validated';
+    case Geolocated = 'geolocated';
     case Pending = 'pending';
     case Refused = 'refused';
 }
