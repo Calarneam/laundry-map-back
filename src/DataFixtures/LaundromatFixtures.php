@@ -2,24 +2,25 @@
 
 namespace App\DataFixtures;
 
+use App\DataFixtures\PaymentMethodFixtures;
+use App\DataFixtures\ProfessionalFixtures;
+use App\DataFixtures\ServiceFixtures;
 use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
+use App\Entity\Enum\GeolocationStatus;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
 use App\Entity\LaundromatExceptionalClosure;
 use App\Entity\LaundromatMedia;
 use App\Entity\Media;
+use App\Entity\PaymentMethod;
+use App\Entity\Professional;
+use App\Entity\Service;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
-use App\DataFixtures\ProfessionalFixtures;
-use App\DataFixtures\ServiceFixtures;
-use App\DataFixtures\PaymentMethodFixtures;
-use App\Entity\Professional;
-use App\Entity\Service;
-use App\Entity\PaymentMethod;
 
 class LaundromatFixtures extends Fixture implements DependentFixtureInterface
 {
@@ -43,6 +44,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $address->setCountry('FR');
         $address->setLattitude('48.8323');
         $address->setLongitude('2.3772');
+        $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 
         $logo = new Media();
