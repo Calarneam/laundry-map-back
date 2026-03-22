@@ -32,6 +32,10 @@ security:
         password_path: password
         success_handler: lexik_jwt_authentication.handler.authentication_success
         failure_handler: lexik_jwt_authentication.handler.authentication_failure
+    google_auth:
+      pattern: ^/api/auth/google
+      stateless: true
+      security: false
     admin:
       pattern: ^/api/admin
       stateless: true
@@ -49,6 +53,7 @@ security:
     - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/register/professional, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/logout, roles: IS_AUTHENTICATED_FULLY }
     - { path: ^/api/admin, roles: ROLE_ADMIN }
     - { path: ^/api/professional, roles: ROLE_PROFESSIONAL }
