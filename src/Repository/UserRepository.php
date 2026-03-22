@@ -32,4 +32,20 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->persist($user);
         $this->getEntityManager()->flush();
     }
+    
+    public function findPendingProfessionals(int $page = 1, int $limit = 10): array
+    {
+        $query = $this->createQueryBuilder('u')
+            ->innerJoin('u.professional', 'p')
+            ->andWhere('p.status = :status')
+            ->setParameter('status', 'Pending')
+            ->orderBy('u.id', 'ASC')
+            ->getQuery()
+        ;
+
+        $query->setFirstResult(($page - 1) * $limit)
+              ->setMaxResults($limit);
+
+        return $query->getResult();
+    }
 }

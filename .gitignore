@@ -70,4 +70,6 @@
 ###> docker ###
 /Dockerfile
 /docker-compose.yml
+compose.override.yaml
 ###< docker ###
+    
