@@ -31,16 +31,6 @@ class JwtAuthenticationSubscriber implements EventSubscriberInterface
         $user = $event->getUser();
         $response = $event->getResponse();
 
-        if ($user instanceof User) {
-            if ($user->getStatus() === UserStatus::Banned) {
-                return;
-            }
-
-            if ($user->getProfessional() !== null && $user->getProfessional()->getStatus() === ProfessionalStatus::Pending) {
-                return;
-            }
-        }
-
         $expiration = (new \DateTime())->add(new \DateInterval('PT' . $this->tokenTtl . 'S'));
         $cookie = Cookie::create('USER_ROLE')
             ->withValue(implode(',', $user->getRoles()))
