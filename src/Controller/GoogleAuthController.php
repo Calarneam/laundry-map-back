@@ -6,14 +6,12 @@ use App\Entity\User;
 use App\Entity\Enum\UserStatus;
 use App\Repository\UserRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
-use Symfony\Component\HttpFoundation\Cookie;
+use Lexik\Bundle\JWTAuthenticationBundle\Security\Http\Authentication\AuthenticationSuccessHandler;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 #[Route('/api/auth/google', name: 'api_auth_google_')]
 class GoogleAuthController extends AbstractApiController
@@ -21,9 +19,7 @@ class GoogleAuthController extends AbstractApiController
     public function __construct(
         private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $entityManager,
-        private readonly JWTTokenManagerInterface $jwtManager,
-        #[Autowire('%kernel.environment%')]
-        private readonly string $appEnv,
+        private readonly AuthenticationSuccessHandler $authenticationSuccessHandler,
     ) {}
 
     #[Route('', name: 'redirect', methods: ['GET'])]
@@ -102,20 +98,13 @@ class GoogleAuthController extends AbstractApiController
             $user->setLastConnectionDate(new \DateTimeImmutable());
             $this->entityManager->flush();
 
-            // 4. Générer le JWT et le poser en cookie HTTP-only 
-            $jwt = $this->jwtManager->create($user);
-
-            $isSecure = $this->appEnv === 'prod';
+            // 4. Générer le JWT via Lexik et récupérer le cookie
+            $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
             $response = new RedirectResponse($frontendUrl);
-            $response->headers->setCookie(
-                Cookie::create('BEARER')
-                    ->withValue($jwt)
-                    ->withPath('/')
-                    ->withSecure($isSecure)
-                    ->withHttpOnly(true)
-                    ->withSameSite('lax')
-            );
+            foreach ($authResponse->headers->getCookies() as $cookie) {
+                $response->headers->setCookie($cookie);
+            }
 
             return $response;
 
