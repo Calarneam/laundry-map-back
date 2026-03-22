@@ -3,10 +3,10 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatRatingRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LaundromatRatingRepository::class)]
-#[ORM\Table(name: 'laundromat_rating')]
 class LaundromatRating
 {
     #[ORM\Id]
@@ -25,25 +25,25 @@ class LaundromatRating
     #[ORM\Column(nullable: true)]
     private ?int $rating = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $ratedAt = null;
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $comment = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $commentedAt = null;
 
     #[ORM\Column(length: 500, nullable: true)]
     private ?string $response = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $respondedAt = null;
 
-    #[ORM\Column(length: 255, nullable: true)]
+    #[ORM\Column(length: 500, nullable: true)]
     private ?string $commentDeletedReason = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $commentDeletedAt = null;
 
     public function getId(): ?int
@@ -56,9 +56,10 @@ class LaundromatRating
         return $this->laundromat;
     }
 
-    public function setLaundromat(?Laundromat $laundromat): static
+    public function setLaundromat(Laundromat $laundromat): static
     {
         $this->laundromat = $laundromat;
+
         return $this;
     }
 
@@ -67,9 +68,10 @@ class LaundromatRating
         return $this->user;
     }
 
-    public function setUser(?User $user): static
+    public function setUser(User $user): static
     {
         $this->user = $user;
+
         return $this;
     }
 
@@ -78,9 +80,10 @@ class LaundromatRating
         return $this->rating;
     }
 
-    public function setRating(?int $rating): static
+    public function setRating(int $rating): static
     {
         $this->rating = $rating;
+
         return $this;
     }
 
@@ -92,6 +95,7 @@ class LaundromatRating
     public function setRatedAt(?\DateTimeImmutable $ratedAt): static
     {
         $this->ratedAt = $ratedAt;
+
         return $this;
     }
 
@@ -100,9 +104,10 @@ class LaundromatRating
         return $this->comment;
     }
 
-    public function setComment(?string $comment): static
+    public function setComment(string $comment): static
     {
         $this->comment = $comment;
+
         return $this;
     }
 
@@ -114,6 +119,7 @@ class LaundromatRating
     public function setCommentedAt(?\DateTimeImmutable $commentedAt): static
     {
         $this->commentedAt = $commentedAt;
+
         return $this;
     }
 
@@ -125,6 +131,7 @@ class LaundromatRating
     public function setResponse(?string $response): static
     {
         $this->response = $response;
+
         return $this;
     }
 
@@ -136,6 +143,7 @@ class LaundromatRating
     public function setRespondedAt(?\DateTimeImmutable $respondedAt): static
     {
         $this->respondedAt = $respondedAt;
+
         return $this;
     }
 
@@ -144,9 +152,10 @@ class LaundromatRating
         return $this->commentDeletedReason;
     }
 
-    public function setCommentDeletedReason(?string $commentDeletedReason): static
+    public function setCommentDeletedReason(string $commentDeletedReason): static
     {
         $this->commentDeletedReason = $commentDeletedReason;
+
         return $this;
     }
 
@@ -158,6 +167,7 @@ class LaundromatRating
     public function setCommentDeletedAt(?\DateTimeImmutable $commentDeletedAt): static
     {
         $this->commentDeletedAt = $commentDeletedAt;
+
         return $this;
     }
 }

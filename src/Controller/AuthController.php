@@ -3,9 +3,16 @@
 namespace App\Controller;
 
 use App\Entity\User;
-use App\Entity\UserStatus;
+use App\Entity\Professional;
+use App\Entity\Address;
+use App\Entity\Enum\UserStatus;
+use App\Entity\Enum\ProfessionalStatus;
+use App\Entity\Enum\GeolocationStatus;
+use App\Repository\UserRepository;
+use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Controller\AbstractApiController;
+use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -14,74 +21,203 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api', name: 'api_')]
-class AuthController extends AbstractController
+class AuthController extends AbstractApiController
 {
-    #[Route('/register', name: 'register', methods: ['POST'])]
+    #[Route('/auth/register', name: 'register', methods: ['POST'])]
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
+        UserRepository $userRepository,
         EntityManagerInterface $entityManager,
         ValidatorInterface $validator
     ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
+        try {
+            $data = json_decode($request->getContent(), true);
 
-        if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email']) || !isset($data['password'])) {
+                return $this->json([
+                    'error' => 'api.messages.missing_fields'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            if ($existingUser) {
+                return $this->json([
+                    'error' => 'api.messages.email_already_used'
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $user = new User();
+
+            $user->setFirstName($data['firstName']);
+            $user->setLastName($data['lastName']);
+            $user->setEmail($data['email']);
+
+            $hashedPassword = $passwordHasher->hashPassword(
+                $user,
+                $data['password']
+            );
+            $user->setPassword($hashedPassword);
+            $user->setStatus(UserStatus::Active);
+            $user->setCreatedAt(new \DateTimeImmutable());
+            $user->setUpdatedAt(new \DateTimeImmutable());
+
+            $errors = $validator->validate($user);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $entityManager->persist($user);
+            $entityManager->flush();
+
             return $this->json([
-                'error' => 'Email et mot de passe requis'
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        // Vérifier si l'utilisateur existe déjà
-        $existingUser = $entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']]);
-        if ($existingUser) {
+                'message' => 'api.messages.user_created_successfully',
+                'user' => [
+                    'email' => $user->getUserIdentifier(),
+                    'firstName' => $user->getFirstName(),
+                    'lastName' => $user->getLastName(),
+                    'roles' => $user->getRoles()
+                ]
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
             return $this->json([
-                'error' => 'Cet email est déjà utilisé'
-            ], Response::HTTP_CONFLICT);
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
-
-        $user = new User();
-        $user->setEmail($data['email']);
-
-        // Hash le mot de passe
-        $hashedPassword = $passwordHasher->hashPassword(
-            $user,
-            $data['password']
-        );
-        $user->setPassword($hashedPassword);
-        $user->setStatus(UserStatus::Pending);
-        $user->setCreatedAt(new \DateTimeImmutable());
-        $user->setUpdatedAt(new \DateTimeImmutable());
-
-        // Validation
-        $errors = $validator->validate($user);
-        if (count($errors) > 0) {
-            $errorsString = (string) $errors;
-            return $this->json([
-                'error' => $errorsString
-            ], Response::HTTP_BAD_REQUEST);
-        }
-
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return $this->json([
-            'message' => 'Utilisateur créé avec succès',
-            'user' => [
-                'id' => $user->getId(),
-                'email' => $user->getEmail(),
-                'roles' => $user->getRoles()
-            ]
-        ], Response::HTTP_CREATED);
     }
 
-    #[Route('/login', name: 'login', methods: ['POST'])]
+    private function SirenIsExisting(string $siren, HttpClientInterface $httpClient): bool
+    {
+        $response = $httpClient->request('GET', 'https://recherche-entreprises.api.gouv.fr/search?q=' . $siren);
+        $data = $response->toArray();
+        if ($data['total_results'] > 0) {
+            return true;
+        }
+
+        return false;
+    }
+
+    #[Route('/auth/register/professional', name: 'register_professional', methods: ['POST'])]
+    public function registerProfessional(
+        Request $request,
+        UserPasswordHasherInterface $passwordHasher,
+        UserRepository $userRepository,
+        ProfessionalRepository $professionalRepository,
+        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
+        HttpClientInterface $httpClient
+    ): JsonResponse {
+        try {
+            $data = json_decode($request->getContent(), true);
+
+            if (!isset($data['email']) || !isset($data['password'])) {
+                return $this->json([
+                    'error' => 'api.messages.missing_fields'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            if ($existingUser) {
+                return $this->json([
+                    'error' => 'api.messages.email_already_used'
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $user = new User();
+            $professional = new Professional();
+
+            $user->setProfessional($professional);
+            $user->setFirstName($data['firstName']);
+            $user->setLastName($data['lastName']);
+            $user->setEmail($data['email']);
+
+            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
+            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
+                return $this->json([
+                    'error' => 'api.messages.siren_not_found_or_already_used'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $professional->setSiren($data['siren']);
+            $professional->setCompanyName($data['companyName']);
+            $professional->setCodeApe($data['codeApe']);
+            $professional->setStatus(ProfessionalStatus::Pending);
+
+            $address = new Address();
+            $fullAddress = $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
+            $address->setAddress($fullAddress);
+            $address->setStreet($data['street']);
+            $address->setZipCode($data['zipCode']);
+            $address->setCity($data['city']);
+            $address->setCountry($data['country']);
+            $address->setGeolocationStatus(GeolocationStatus::Geolocated);
+            $professional->setAddress($address);
+
+            $hashedPassword = $passwordHasher->hashPassword(
+                $user,
+                $data['password']
+            );
+            $user->setPassword($hashedPassword);
+            $user->setStatus(UserStatus::Active);
+            $user->setCreatedAt(new \DateTimeImmutable());
+            $user->setUpdatedAt(new \DateTimeImmutable());
+
+            $errors = $validator->validate($user);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $entityManager->persist($user);
+            $entityManager->flush();
+
+            return $this->json([
+                'message' => 'api.messages.professional_pending_validation',
+
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json([
+                'error' => $e->getMessage()
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/auth/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
-        // Cette méthode ne sera jamais appelée car le firewall intercepte la requête
-        // Elle est juste là pour la documentation de la route
         return $this->json([
             'message' => 'Login endpoint - géré par le firewall'
         ]);
+    }
+
+    #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
+    public function logout(): JsonResponse
+    {
+      $response = new JsonResponse(['message' => 'api.messages.logout_successfully']);
+      $response->headers->clearCookie(
+        'BEARER',
+        '/',
+        null,
+        true,
+        true,
+        false,
+        'strict'
+      );
+      $response->headers->clearCookie(
+        'USER_ROLE',
+        '/',
+        null,
+        true,
+        true,
+        false,
+        'strict'
+      );
+      return $response;
     }
 
     #[Route('/me', name: 'me', methods: ['GET'])]
@@ -89,15 +225,8 @@ class AuthController extends AbstractController
     {
         $user = $this->getUser();
 
-        if (!$user) {
-            return $this->json([
-                'error' => 'Non authentifié'
-            ], Response::HTTP_UNAUTHORIZED);
-        }
-
         return $this->json([
-            'id' => $user->getId(),
-            'email' => $user->getEmail(),
+            'email' => $user->getUserIdentifier(),
             'roles' => $user->getRoles()
         ]);
     }

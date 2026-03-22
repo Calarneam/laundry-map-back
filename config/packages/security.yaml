@@ -1,48 +1,71 @@
 security:
-    # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
-    password_hashers:
-        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: "auto"
+  # https://symfony.com/doc/current/security.html#registering-the-user-hashing-passwords
+  password_hashers:
+    Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: "auto"
 
-    # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
-    providers:
-        app_user_provider:
-            entity:
-                class: App\Entity\User
-                property: email
+  # https://symfony.com/doc/current/security.html#loading-the-user-the-user-provider
+  providers:
+    app_user_provider:
+      entity:
+        class: App\Entity\User
+        property: email
+    app_admin_provider:
+      entity:
+        class: App\Entity\Administrator
+        property: email
+    chain_signin_provider:
+      chain:
+        providers: [app_user_provider, app_admin_provider]
 
-    firewalls:
-        dev:
-            pattern: ^/(_profiler|_wdt|assets|build)/
-            security: false
-        login:
-            pattern: ^/api/login
-            stateless: true
-            json_login:
-                check_path: /api/login
-                username_path: email
-                password_path: password
-                success_handler: lexik_jwt_authentication.handler.authentication_success
-                failure_handler: lexik_jwt_authentication.handler.authentication_failure
-        api:
-            pattern: ^/api
-            stateless: true
-            jwt: ~
-        main:
-            lazy: true
-            provider: app_user_provider
+  firewalls:
+    dev:
+      pattern: ^/(_profiler|_wdt|assets|build)/
+      security: false
+    login:
+      pattern: ^/api/auth/login
+      stateless: true
+      provider: chain_signin_provider
+      user_checker: App\Security\UserChecker
+      json_login:
+        check_path: /api/auth/login
+        username_path: email
+        password_path: password
+        success_handler: lexik_jwt_authentication.handler.authentication_success
+        failure_handler: lexik_jwt_authentication.handler.authentication_failure
+    google_auth:
+      pattern: ^/api/auth/google
+      stateless: true
+      security: false
+    admin:
+      pattern: ^/api/admin
+      stateless: true
+      provider: app_admin_provider
+      user_checker: App\Security\UserChecker
+      jwt: ~
+    user:
+      pattern: ^/api
+      stateless: true
+      provider: chain_signin_provider
+      user_checker: App\Security\UserChecker
+      jwt: ~
 
-    access_control:
-        - { path: ^/api/register, roles: PUBLIC_ACCESS }
-        - { path: ^/api/login, roles: PUBLIC_ACCESS }
-        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+  access_control:
+    - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/register/professional, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/logout, roles: IS_AUTHENTICATED_FULLY }
+    - { path: ^/api/admin, roles: ROLE_ADMIN }
+    - { path: ^/api/professional, roles: ROLE_PROFESSIONAL }
+    - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
-    security:
-        password_hashers:
-            # Password hashers are resource-intensive by design to ensure security.
-            # In tests, it's safe to reduce their cost to improve performance.
-            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
-                algorithm: auto
-                cost: 4 # Lowest possible value for bcrypt
-                time_cost: 3 # Lowest possible value for argon
-                memory_cost: 10 # Lowest possible value for argon
+  security:
+    password_hashers:
+      # Password hashers are resource-intensive by design to ensure security.
+      # In tests, it's safe to reduce their cost to improve performance.
+      Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+        algorithm: auto
+        cost: 4 # Lowest possible value for bcrypt
+        time_cost: 3 # Lowest possible value for argon
+        memory_cost: 10 # Lowest possible value for argon

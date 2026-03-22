@@ -22,7 +22,7 @@ class Media
     #[ORM\Column]
     private ?int $size = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column]
     private ?string $mimeType = null;
 
     public function getId(): ?int
@@ -38,6 +38,7 @@ class Media
     public function setLocation(string $location): static
     {
         $this->location = $location;
+
         return $this;
     }
 
@@ -49,6 +50,7 @@ class Media
     public function setOriginalName(string $originalName): static
     {
         $this->originalName = $originalName;
+
         return $this;
     }
 
@@ -60,6 +62,7 @@ class Media
     public function setSize(int $size): static
     {
         $this->size = $size;
+
         return $this;
     }
 
@@ -71,6 +74,7 @@ class Media
     public function setMimeType(string $mimeType): static
     {
         $this->mimeType = $mimeType;
+
         return $this;
     }
 }

@@ -3,10 +3,10 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatExceptionalClosureRepository;
+use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: LaundromatExceptionalClosureRepository::class)]
-#[ORM\Table(name: 'laundromat_exceptional_closure')]
 class LaundromatExceptionalClosure
 {
     #[ORM\Id]
@@ -18,16 +18,16 @@ class LaundromatExceptionalClosure
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $startDate = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $reason = null;
 
-    #[ORM\Column]
+    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     private ?\DateTimeImmutable $addedDate = null;
 
     public function getId(): ?int
@@ -40,9 +40,10 @@ class LaundromatExceptionalClosure
         return $this->laundromat;
     }
 
-    public function setLaundromat(?Laundromat $laundromat): static
+    public function setLaundromat(Laundromat $laundromat): static
     {
         $this->laundromat = $laundromat;
+
         return $this;
     }
 
@@ -54,6 +55,7 @@ class LaundromatExceptionalClosure
     public function setStartDate(\DateTimeImmutable $startDate): static
     {
         $this->startDate = $startDate;
+
         return $this;
     }
 
@@ -65,6 +67,7 @@ class LaundromatExceptionalClosure
     public function setEndDate(\DateTimeImmutable $endDate): static
     {
         $this->endDate = $endDate;
+
         return $this;
     }
 
@@ -73,9 +76,10 @@ class LaundromatExceptionalClosure
         return $this->reason;
     }
 
-    public function setReason(?string $reason): static
+    public function setReason(string $reason): static
     {
         $this->reason = $reason;
+
         return $this;
     }
 
@@ -87,6 +91,7 @@ class LaundromatExceptionalClosure
     public function setAddedDate(\DateTimeImmutable $addedDate): static
     {
         $this->addedDate = $addedDate;
+
         return $this;
     }
 }

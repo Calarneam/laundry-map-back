@@ -16,14 +16,6 @@ class Service
     #[ORM\Column(length: 255)]
     private ?string $name = null;
 
-    #[ORM\ManyToMany(targetEntity: Laundromat::class, mappedBy: 'services')]
-    private \Doctrine\Common\Collections\Collection $laundromats;
-
-    public function __construct()
-    {
-        $this->laundromats = new \Doctrine\Common\Collections\ArrayCollection();
-    }
-
     public function getId(): ?int
     {
         return $this->id;
@@ -37,14 +29,7 @@ class Service
     public function setName(string $name): static
     {
         $this->name = $name;
-        return $this;
-    }
 
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, Laundromat>
-     */
-    public function getLaundromats(): \Doctrine\Common\Collections\Collection
-    {
-        return $this->laundromats;
+        return $this;
     }
 }

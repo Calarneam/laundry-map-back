@@ -1,0 +1,135 @@
+{
+  "info": {
+    "_postman_id": "26eab4fb-ed10-4f72-9345-0719eb6fb769",
+    "name": "LaundryMap",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "49079091",
+    "_collection_link": "https://go.postman.co/collection/49079091-26eab4fb-ed10-4f72-9345-0719eb6fb769?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "AuthController",
+      "item": [
+        {
+          "name": "signin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@test.com\",\r\n  \"password\": \"1234\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/sigin",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "sigin"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "signup",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\r\n  \"email\": \"admin@test.com\",\r\n  \"password\": \"1234\"\r\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{BaseURL}}/signup",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "me",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpYXQiOjE3NzI2MzA1NzIsImV4cCI6MTc3MjYzNDE3Miwicm9sZXMiOlsiUk9MRV9VU0VSIl0sInVzZXJuYW1lIjoiYWRtaW5AdGVzdC5jb20ifQ.Y-j929T39SzEqh6C3PMkx79Wd-mXbjqW-aF2qk0BXUXJpno-ey0KhKG3S0s4R2LbtAjKFz5Npm6cAALHbRyn6rWV-K6RybarffJVDiZHCmsaPAQSgHKJ3EoD-KpqWSWfGd_6LuiLtJwBnXjLHH5QP467VDqe97ap9Quh2BL5SqeTbzWRPg2dLMQmunrz_RBBSWGMDs4HpSp7R-Y0CX6-tPiNCz-LcDBHSKPlmk3BlkQJw33shrgD-SNZ-0PKTSff1HvpV65yoHqBNlRIe4s032wlp9RQL5-bJufzqvoWz5MwpnNeb9sXavp9p1NVSNnkgSJWYk-eKD7fRFFPONP6bE-TPGV_jQ5-iDyYSG-RpEtEa5IVgEzdBZNa7TW7yzc_J8tP39n4K88kGjPjfNNzLINQr7IdHhWbd-IcqmNCcPLas91r7L_c0sz8YWICPBOGs_uLLMEKWjln55arEdMrI60PJII5hBFAWMaSsQ0HCT2GBvs8i6nxZja2vptdqAbhbQiQFHDAAxF-kyXOusreSmM0ktBEMO_Pftu2J4XKFcEAxzthvusLG9mhpyJNs_2FXEg8jvo1FB4Lt-1MaN1Edo09A24kkzIL6hzEV2A8F3nJ88SUHePPilPqRw6GLlwQzKTURjqx52voZ2a0ro4rQaBV_7QHxkFsoCv-TvpYz0Q",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BaseURL}}/me",
+              "host": [
+                "{{BaseURL}}"
+              ],
+              "path": [
+                "me"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpYXQiOjE3NzI2MzA1NzIsImV4cCI6MTc3MjYzNDE3Miwicm9sZXMiOlsiUk9MRV9VU0VSIl0sInVzZXJuYW1lIjoiYWRtaW5AdGVzdC5jb20ifQ.Y-j929T39SzEqh6C3PMkx79Wd-mXbjqW-aF2qk0BXUXJpno-ey0KhKG3S0s4R2LbtAjKFz5Npm6cAALHbRyn6rWV-K6RybarffJVDiZHCmsaPAQSgHKJ3EoD-KpqWSWfGd_6LuiLtJwBnXjLHH5QP467VDqe97ap9Quh2BL5SqeTbzWRPg2dLMQmunrz_RBBSWGMDs4HpSp7R-Y0CX6-tPiNCz-LcDBHSKPlmk3BlkQJw33shrgD-SNZ-0PKTSff1HvpV65yoHqBNlRIe4s032wlp9RQL5-bJufzqvoWz5MwpnNeb9sXavp9p1NVSNnkgSJWYk-eKD7fRFFPONP6bE-TPGV_jQ5-iDyYSG-RpEtEa5IVgEzdBZNa7TW7yzc_J8tP39n4K88kGjPjfNNzLINQr7IdHhWbd-IcqmNCcPLas91r7L_c0sz8YWICPBOGs_uLLMEKWjln55arEdMrI60PJII5hBFAWMaSsQ0HCT2GBvs8i6nxZja2vptdqAbhbQiQFHDAAxF-kyXOusreSmM0ktBEMO_Pftu2J4XKFcEAxzthvusLG9mhpyJNs_2FXEg8jvo1FB4Lt-1MaN1Edo09A24kkzIL6hzEV2A8F3nJ88SUHePPilPqRw6GLlwQzKTURjqx52voZ2a0ro4rQaBV_7QHxkFsoCv-TvpYz0Q",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "packages": {},
+        "requests": {},
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "BaseURL",
+      "value": ""
+    }
+  ]
+}

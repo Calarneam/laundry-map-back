@@ -6,6 +6,9 @@ use App\Repository\UserRepository;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
+use App\Entity\Enum\UserStatus;
+use Doctrine\Common\Collections\Collection;
+use Doctrine\Common\Collections\ArrayCollection;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
@@ -25,9 +28,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $firstName = null;
 
-    /**
-     * @var string|null The hashed password (nullable for OAuth users)
-     */
     #[ORM\Column(length: 255, nullable: true)]
     private ?string $password = null;
 
@@ -46,19 +46,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastConnectionDate = null;
 
-    /**
-     * @var list<string> Roles (e.g. ROLE_USER, ROLE_ADMIN), stockés en base.
-     */
-    #[ORM\Column(type: 'json')]
-    private array $roles = [];
+    #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private ?Professional $professional = null;
 
-    #[ORM\ManyToMany(targetEntity: Laundromat::class, inversedBy: 'favoritedByUsers')]
-    #[ORM\JoinTable(name: 'laundromat_favorite')]
-    private \Doctrine\Common\Collections\Collection $favoriteLaundromats;
+    #[ORM\ManyToMany(targetEntity: Laundromat::class)]
+    #[ORM\JoinTable(name: 'user_favorite_laundromat')]
+    #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id')]
+    #[ORM\InverseJoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
+    private Collection $favoriteLaundromats;
+
+    #[ORM\OneToMany(targetEntity: LaundromatRating::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    private Collection $ratings;
 
     public function __construct()
     {
-        $this->favoriteLaundromats = new \Doctrine\Common\Collections\ArrayCollection();
+        $this->favoriteLaundromats = new ArrayCollection();
+        $this->ratings = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -112,54 +115,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     /**
      * @see UserInterface
-     * Fusionne les rôles en base avec ROLE_USER pour les utilisateurs validés.
      */
     public function getRoles(): array
     {
-        if ($this->status === UserStatus::Banned || $this->status === UserStatus::Refused) {
-            return [];
-        }
-        $roles = $this->roles;
-        if (!in_array('ROLE_USER', $roles, true)) {
-            $roles[] = 'ROLE_USER';
-        }
-        return array_unique($roles);
+        return ['ROLE_USER'];
     }
 
-    /**
-     * @param list<string> $roles
-     */
-    public function setRoles(array $roles): static
-    {
-        $this->roles = $roles;
-        return $this;
-    }
-
-    /**
-     * @return \Doctrine\Common\Collections\Collection<int, Laundromat>
-     */
-    public function getFavoriteLaundromats(): \Doctrine\Common\Collections\Collection
-    {
-        return $this->favoriteLaundromats;
-    }
-
-    public function addFavoriteLaundromat(Laundromat $laundromat): static
-    {
-        if (!$this->favoriteLaundromats->contains($laundromat)) {
-            $this->favoriteLaundromats->add($laundromat);
-        }
-        return $this;
-    }
-
-    public function removeFavoriteLaundromat(Laundromat $laundromat): static
-    {
-        $this->favoriteLaundromats->removeElement($laundromat);
-        return $this;
-    }
-
-    /**
-     * @see PasswordAuthenticatedUserInterface
-     */
     public function getPassword(): ?string
     {
         return $this->password;
@@ -232,9 +193,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * Ensure the session doesn't contain actual password hashes by CRC32C-hashing them.
-     */
     public function __serialize(): array
     {
         $data = (array) $this;
@@ -243,8 +201,47 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $data;
     }
 
-    public function eraseCredentials(): void
+    public function eraseCredentials(): void 
     {
-        // Nettoyage des données sensibles en session (requis par UserInterface)
+        $this->password = null;
+    }
+
+    public function getProfessional(): ?Professional
+    {
+        return $this->professional;
+    }
+
+    public function setProfessional(?Professional $professional): static
+    {
+        $this->professional = $professional;
+
+        if (null !== $professional && $professional->getUser() !== $this) {
+            $professional->setUser($this);
+        }
+
+        return $this;
+    }
+
+    public function getFavoriteLaundromats(): ?Collection
+    {
+        return $this->favoriteLaundromats;
+    }
+
+    public function setFavoriteLaundromats(?Collection $favoriteLaundromats): static
+    {
+        $this->favoriteLaundromats = $favoriteLaundromats;
+
+        return $this;
+    }
+
+    public function getRatings(): ?Collection
+    {
+        return $this->ratings;
+    }
+
+    public function setRatings(?Collection $ratings): static
+    {
+        $this->ratings = $ratings;
+        return $this;
     }
 }
