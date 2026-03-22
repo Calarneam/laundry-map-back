@@ -62,6 +62,6 @@ class Administrator implements UserInterface, PasswordAuthenticatedUserInterface
     
     public function eraseCredentials(): void 
     {
-        $this->password = null;
+        // nothing to erase
     }
 }
