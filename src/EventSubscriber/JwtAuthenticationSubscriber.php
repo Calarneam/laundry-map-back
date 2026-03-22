@@ -2,9 +2,6 @@
 
 namespace App\EventSubscriber;
 
-use App\Entity\User;
-use App\Entity\Enum\UserStatus;
-use App\Entity\Enum\ProfessionalStatus;
 use Lexik\Bundle\JWTAuthenticationBundle\Event\AuthenticationSuccessEvent;
 use Lexik\Bundle\JWTAuthenticationBundle\Events;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -30,16 +27,6 @@ class JwtAuthenticationSubscriber implements EventSubscriberInterface
     {
         $user = $event->getUser();
         $response = $event->getResponse();
-
-        if ($user instanceof User) {
-            if ($user->getStatus() === UserStatus::Banned) {
-                return;
-            }
-
-            if ($user->getProfessional() !== null && $user->getProfessional()->getStatus() === ProfessionalStatus::Pending) {
-                return;
-            }
-        }
 
         $expiration = (new \DateTime())->add(new \DateInterval('PT' . $this->tokenTtl . 'S'));
         $cookie = Cookie::create('USER_ROLE')
