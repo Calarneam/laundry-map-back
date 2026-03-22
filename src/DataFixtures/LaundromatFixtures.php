@@ -5,6 +5,7 @@ namespace App\DataFixtures;
 use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
+use App\Entity\Enum\GeolocationStatus;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
@@ -43,6 +44,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $address->setCountry('FR');
         $address->setLattitude('48.8323');
         $address->setLongitude('2.3772');
+        $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 
         $logo = new Media();
