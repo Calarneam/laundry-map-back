@@ -18,6 +18,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api', name: 'api_')]
@@ -205,29 +206,34 @@ class AuthController extends AbstractApiController
         null,
         true,
         true,
-        false,
-        'strict'
+        'lax'
       );
       $response->headers->clearCookie(
         'USER_ROLE',
         '/',
         null,
         true,
-        true,
         false,
-        'strict'
+        'lax'
       );
       return $response;
     }
 
     #[Route('/me', name: 'me', methods: ['GET'])]
-    public function me(): JsonResponse
+    public function me(#[CurrentUser] User $user): JsonResponse
     {
-        $user = $this->getUser();
-
-        return $this->json([
+        $data = [
+            'firstName' => $user->getFirstName(),
+            'lastName' => $user->getLastName(),
             'email' => $user->getUserIdentifier(),
             'roles' => $user->getRoles()
-        ]);
+        ];
+
+        $professional = $user->getProfessional();
+        if ($professional !== null) {
+            $data['siren'] = $professional->getSiren();
+            $data['companyName'] = $professional->getCompanyName();
+        }
+        return $this->json($data);
     }
 }
