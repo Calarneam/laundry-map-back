@@ -35,6 +35,7 @@ class AdminController extends AbstractApiController
                     'siren' => $professional->getSiren(),
                     'companyName' => $professional->getCompanyName(),
                     'codeApe' => $professional->getCodeApe(),
+                    'createdAt' => $user?->getCreatedAt()?->format('c'),
                     'address' => $address ? [
                         'street' => $address->getStreet(),
                         'zipCode' => $address->getZipCode(),
