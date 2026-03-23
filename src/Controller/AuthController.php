@@ -206,16 +206,16 @@ class AuthController extends AbstractApiController
         true,
         true,
         false,
-        'strict'
+        'lax'
       );
       $response->headers->clearCookie(
         'USER_ROLE',
         '/',
         null,
         true,
-        true,
         false,
-        'strict'
+        false,
+        'lax'
       );
       return $response;
     }
