@@ -2,11 +2,13 @@
 
 namespace App\Controller;
 
+use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Professional;
 use App\Entity\Address;
 use App\Entity\Enum\UserStatus;
 use App\Entity\Enum\ProfessionalStatus;
+use App\Entity\Enum\UserType;
 use App\Entity\Enum\GeolocationStatus;
 use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
@@ -205,17 +207,15 @@ class AuthController extends AbstractApiController
         null,
         true,
         true,
-        false,
-        'strict'
+        'lax'
       );
       $response->headers->clearCookie(
         'USER_ROLE',
         '/',
         null,
         true,
-        true,
         false,
-        'strict'
+        'lax'
       );
       return $response;
     }
@@ -223,11 +223,34 @@ class AuthController extends AbstractApiController
     #[Route('/me', name: 'me', methods: ['GET'])]
     public function me(): JsonResponse
     {
-        $user = $this->getUser();
+        $userType = $this->getCurrentUserType();
+        $current = $this->getUser();
 
-        return $this->json([
-            'email' => $user->getUserIdentifier(),
-            'roles' => $user->getRoles()
-        ]);
+        if ($userType === UserType::Admin && $current instanceof Administrator) {
+            return $this->json([
+                'type' => UserType::Admin->value,
+                'email' => $current->getUserIdentifier(),
+                'roles' => $current->getRoles(),
+            ]);
+        }
+
+        if (!$current instanceof User) {
+            return $this->json(['error' => 'Unexpected authenticated user type'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
+        $data = [
+            'firstName' => $current->getFirstName(),
+            'lastName' => $current->getLastName(),
+            'email' => $current->getUserIdentifier(),
+            'roles' => $current->getRoles(),
+        ];
+
+        $professional = $current->getProfessional();
+        if ($professional !== null) {
+            $data['siren'] = $professional->getSiren();
+            $data['companyName'] = $professional->getCompanyName();
+        }
+
+        return $this->json($data);
     }
 }
