@@ -2,11 +2,13 @@
 
 namespace App\Controller;
 
+use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Professional;
 use App\Entity\Address;
 use App\Entity\Enum\UserStatus;
 use App\Entity\Enum\ProfessionalStatus;
+use App\Entity\Enum\UserType;
 use App\Entity\Enum\GeolocationStatus;
 use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
@@ -18,7 +20,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\CurrentUser;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api', name: 'api_')]
@@ -220,20 +221,36 @@ class AuthController extends AbstractApiController
     }
 
     #[Route('/me', name: 'me', methods: ['GET'])]
-    public function me(#[CurrentUser] User $user): JsonResponse
+    public function me(): JsonResponse
     {
+        $userType = $this->getCurrentUserType();
+        $current = $this->getUser();
+
+        if ($userType === UserType::Admin && $current instanceof Administrator) {
+            return $this->json([
+                'type' => UserType::Admin->value,
+                'email' => $current->getUserIdentifier(),
+                'roles' => $current->getRoles(),
+            ]);
+        }
+
+        if (!$current instanceof User) {
+            return $this->json(['error' => 'Unexpected authenticated user type'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
         $data = [
-            'firstName' => $user->getFirstName(),
-            'lastName' => $user->getLastName(),
-            'email' => $user->getUserIdentifier(),
-            'roles' => $user->getRoles()
+            'firstName' => $current->getFirstName(),
+            'lastName' => $current->getLastName(),
+            'email' => $current->getUserIdentifier(),
+            'roles' => $current->getRoles(),
         ];
 
-        $professional = $user->getProfessional();
+        $professional = $current->getProfessional();
         if ($professional !== null) {
             $data['siren'] = $professional->getSiren();
             $data['companyName'] = $professional->getCompanyName();
         }
+
         return $this->json($data);
     }
 }
