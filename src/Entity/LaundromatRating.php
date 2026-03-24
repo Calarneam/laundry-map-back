@@ -14,11 +14,11 @@ class LaundromatRating
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'ratings')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 
-    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'ratings')]
     #[ORM\JoinColumn(nullable: false)]
     private ?User $user = null;
 

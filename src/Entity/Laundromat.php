@@ -16,7 +16,7 @@ class Laundromat
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Professional::class)]
+    #[ORM\ManyToOne(targetEntity: Professional::class, inversedBy: 'laundromats')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Professional $professional = null;
 

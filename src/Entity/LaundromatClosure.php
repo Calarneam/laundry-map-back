@@ -14,7 +14,7 @@ class LaundromatClosure
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'closures')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 

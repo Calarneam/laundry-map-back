@@ -15,7 +15,7 @@ class LaundromatEquipment
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'equipments')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 

@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Professional;
 use App\Entity\Address;
@@ -22,10 +21,10 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route('/api', name: 'api_')]
+#[Route('/api/auth', name: 'api_auth_')]
 class AuthController extends AbstractApiController
 {
-    #[Route('/auth/register', name: 'register', methods: ['POST'])]
+    #[Route('/register', name: 'register', methods: ['POST'])]
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
@@ -102,7 +101,7 @@ class AuthController extends AbstractApiController
         return false;
     }
 
-    #[Route('/auth/register/professional', name: 'register_professional', methods: ['POST'])]
+    #[Route('/register/professional', name: 'register_professional', methods: ['POST'])]
     public function registerProfessional(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
@@ -115,7 +114,12 @@ class AuthController extends AbstractApiController
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email']) || !isset($data['password']) || !isset($data['siren']) 
+                || !isset($data['companyName']) || !isset($data['codeApe']) 
+                || !isset($data['street']) || !isset($data['zipCode']) 
+                || !isset($data['city']) || !isset($data['country']) 
+                || !isset($data['firstName']) || !isset($data['lastName']))
+            {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
@@ -128,6 +132,13 @@ class AuthController extends AbstractApiController
                 ], Response::HTTP_CONFLICT);
             }
 
+            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
+            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
+                return $this->json([
+                    'error' => 'api.messages.siren_not_found_or_already_used'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
             $user = new User();
             $professional = new Professional();
 
@@ -136,19 +147,13 @@ class AuthController extends AbstractApiController
             $user->setLastName($data['lastName']);
             $user->setEmail($data['email']);
 
-            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
-            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
-                return $this->json([
-                    'error' => 'api.messages.siren_not_found_or_already_used'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
             $professional->setSiren($data['siren']);
             $professional->setCompanyName($data['companyName']);
             $professional->setCodeApe($data['codeApe']);
             $professional->setStatus(ProfessionalStatus::Pending);
 
             $address = new Address();
+
             $fullAddress = $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
             $address->setAddress($fullAddress);
             $address->setStreet($data['street']);
@@ -189,7 +194,7 @@ class AuthController extends AbstractApiController
         }
     }
 
-    #[Route('/auth/login', name: 'login', methods: ['POST'])]
+    #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
         return $this->json([
@@ -197,7 +202,7 @@ class AuthController extends AbstractApiController
         ]);
     }
 
-    #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
+    #[Route('/logout', name: 'logout', methods: ['POST'])]
     public function logout(): JsonResponse
     {
       $response = new JsonResponse(['message' => 'api.messages.logout_successfully']);
@@ -223,10 +228,9 @@ class AuthController extends AbstractApiController
     #[Route('/me', name: 'me', methods: ['GET'])]
     public function me(): JsonResponse
     {
-        $userType = $this->getCurrentUserType();
         $current = $this->getUser();
 
-        if ($userType === UserType::Admin && $current instanceof Administrator) {
+        if ($current->getRoles() === ['ROLE_ADMIN']) {
             return $this->json([
                 'type' => UserType::Admin->value,
                 'email' => $current->getUserIdentifier(),

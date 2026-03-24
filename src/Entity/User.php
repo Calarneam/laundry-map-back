@@ -118,7 +118,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getRoles(): array
     {
-        return ['ROLE_USER'];
+        return $this->professional !== null ? ['ROLE_USER', 'ROLE_PROFESSIONAL'] : ['ROLE_USER'];
     }
 
     public function getPassword(): ?string

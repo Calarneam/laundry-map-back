@@ -2,10 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Administrator;
 use App\Entity\Enum\ProfessionalInteractionHistoryAction;
 use App\Entity\Enum\ProfessionalStatus;
 use App\Entity\ProfessionalInteractionHistory;
+use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -16,36 +16,18 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/admin', name: 'api_admin_')]
 class AdminController extends AbstractApiController
 {
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+        private readonly UserRepository $userRepository,
+        private readonly ProfessionalRepository $professionalRepository,
+    ) {}
+
     #[Route('/pros/pending', name: 'pros_pending', methods: ['GET'])]
-    public function listPendingProfessionals(
-        ProfessionalRepository $professionalRepository
-    ): JsonResponse {
+    public function listPendingProfessionals(): JsonResponse {
         try {
-            $professionals = $professionalRepository->findBy(['status' => ProfessionalStatus::Pending]);
-
-            $data = array_map(function ($professional) {
-                $user = $professional->getUser();
-                $address = $professional->getAddress();
-
-                return [
-                    'id' => $professional->getId(),
-                    'firstName' => $user?->getFirstName(),
-                    'lastName' => $user?->getLastName(),
-                    'email' => $user?->getEmail(),
-                    'siren' => $professional->getSiren(),
-                    'companyName' => $professional->getCompanyName(),
-                    'codeApe' => $professional->getCodeApe(),
-                    'createdAt' => $user?->getCreatedAt()?->format('c'),
-                    'address' => $address ? [
-                        'street' => $address->getStreet(),
-                        'zipCode' => $address->getZipCode(),
-                        'city' => $address->getCity(),
-                        'country' => $address->getCountry(),
-                    ] : null,
-                ];
-            }, $professionals);
-
-            return $this->json($data, Response::HTTP_OK);
+            $professionalPendings = $this->userRepository->findPendingProfessionals();
+            
+            return $this->json($professionalPendings, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json([
                 'error' => $e->getMessage()
@@ -57,8 +39,6 @@ class AdminController extends AbstractApiController
     public function updateProfessionalStatus(
         int $id,
         Request $request,
-        ProfessionalRepository $professionalRepository,
-        EntityManagerInterface $entityManager
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
@@ -77,14 +57,13 @@ class AdminController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            // RG0053: If status is "refused", reason must not be empty
             if ($status === 'refused' && (empty($data['reason']) || trim($data['reason']) === '')) {
                 return $this->json([
                     'error' => 'api.messages.reason_required_for_refusal'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $professional = $professionalRepository->find($id);
+            $professional = $this->professionalRepository->find($id);
 
             if (!$professional) {
                 return $this->json([
@@ -98,7 +77,6 @@ class AdminController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            /** @var Administrator $admin */
             $admin = $this->getUser();
 
             if ($status === 'validated') {
@@ -112,7 +90,6 @@ class AdminController extends AbstractApiController
                 $action = ProfessionalInteractionHistoryAction::Refused;
             }
 
-            // RG0052: Create a ProfessionalInteractionHistory entry
             $history = new ProfessionalInteractionHistory();
             $history->setAdministrator($admin);
             $history->setProfessional($professional);
@@ -120,8 +97,8 @@ class AdminController extends AbstractApiController
             $history->setActionReason($reason);
             $history->setDate(new \DateTimeImmutable());
 
-            $entityManager->persist($history);
-            $entityManager->flush();
+            $this->entityManager->persist($history);
+            $this->entityManager->flush();
 
             return $this->json([
                 'message' => $status === 'validated'

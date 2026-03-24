@@ -14,7 +14,7 @@ class LaundromatExceptionalClosure
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'exceptionalClosures')]
     #[ORM\JoinColumn(nullable: false)]
     private ?Laundromat $laundromat = null;
 

@@ -5,12 +5,14 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Entity\Enum\UserStatus;
 use App\Repository\UserRepository;
+use App\Security\UserChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Security\Http\Authentication\AuthenticationSuccessHandler;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccountStatusException;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[Route('/api/auth/google', name: 'api_auth_google_')]
@@ -20,6 +22,7 @@ class GoogleAuthController extends AbstractApiController
         private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $entityManager,
         private readonly AuthenticationSuccessHandler $authenticationSuccessHandler,
+        private readonly UserChecker $userChecker,
     ) {}
 
     #[Route('', name: 'redirect', methods: ['GET'])]
@@ -95,10 +98,15 @@ class GoogleAuthController extends AbstractApiController
                 $user->setUpdatedAt(new \DateTimeImmutable());
             }
 
-            $user->setLastConnectionDate(new \DateTimeImmutable());
             $this->entityManager->flush();
 
-            // 4. Générer le JWT via Lexik et récupérer le cookie
+            try {
+                $this->userChecker->checkPreAuth($user);
+            } catch (AccountStatusException) {
+                return new RedirectResponse($frontendUrl . '/login?error=account_restricted');
+            }
+
+            // 4. Générer le JWT via Lexik et récupérer le cookie (lastConnectionDate via JwtAuthenticationSubscriber)
             $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
             $response = new RedirectResponse($frontendUrl);
