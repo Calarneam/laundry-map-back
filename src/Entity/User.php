@@ -203,7 +203,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     public function eraseCredentials(): void 
     {
-        $this->password = null;
+      // nothing to erase
     }
 
     public function getProfessional(): ?Professional
