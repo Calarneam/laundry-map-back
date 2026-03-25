@@ -12,10 +12,18 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
+
+use function count;
 
 #[Route('/api/user/profile', name: 'api_profile_')]
 class ProfileController extends AbstractApiController
 {
+
+    public function __construct(
+        private readonly EntityManagerInterface $entityManager,
+    ) {}
+
     #[Route('/', name: 'get', methods: ['GET'])]
     public function getProfile(): JsonResponse
     {
@@ -55,29 +63,26 @@ class ProfileController extends AbstractApiController
     public function updatePassword(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        EntityManagerInterface $entityManager,
     ): JsonResponse {
         $currentUser = $this->getUser();
 
         $data = json_decode($request->getContent(), true);
-        $currentPassword = $data['oldPassword'] ?? null;
-        $newPassword = $data['newPassword'] ?? null;
 
-        if (!isset($currentPassword) || !isset($newPassword)) {
+        if (!isset($data['oldPassword']) || !isset($data['newPassword'])) {
             return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
         }
 
-        if (!$passwordHasher->isPasswordValid($currentUser, $currentPassword)) {
+        if (!$passwordHasher->isPasswordValid($currentUser, $data['oldPassword'])) {
             return $this->json(['error' => 'api.messages.invalid_old_password'], Response::HTTP_BAD_REQUEST);
         }
 
-        $hashedPassword = $passwordHasher->hashPassword($currentUser, $newPassword);
+        $hashedPassword = $passwordHasher->hashPassword($currentUser, $data['newPassword']);
 
         if ($currentUser instanceof Administrator || $currentUser instanceof User) {
             $currentUser->setPassword($hashedPassword);
         }
 
-        $entityManager->flush();
+        $this->entityManager->flush();
 
         return $this->json([
             'message' => 'api.messages.password_changed',
@@ -87,26 +92,26 @@ class ProfileController extends AbstractApiController
     #[Route('/fullname', name: 'update_fullname', methods: ['PATCH'])]
     public function updateFullname(
         Request $request,
-        EntityManagerInterface $entityManager,
+        ValidatorInterface $validator,
     ): JsonResponse {
         $currentUser = $this->getUser();
 
         $data = json_decode($request->getContent(), true);
 
-        $firstName = $data['firstName'] ?? null;
-        $lastName = $data['lastName'] ?? null;
-
-        if (!isset($firstName) || !isset($lastName)) {
-            return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
-        }
-
         if (!$currentUser instanceof User) {
             return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
         }
 
-        $currentUser->setFirstName($firstName);
-        $currentUser->setLastName($lastName);
-        $entityManager->flush();
+        $currentUser->setFirstName($data['firstName']);
+        $currentUser->setLastName($data['lastName']);
+
+        $errors = $validator->validate($currentUser);
+        if (count($errors) > 0) {
+            $errorsString = (string) $errors;
+            return $this->json(['error' => $errorsString], Response::HTTP_BAD_REQUEST);
+        }
+
+        $this->entityManager->flush();
         
         return $this->json([
             'message' => 'api.messages.fullname_updated',
@@ -114,14 +119,12 @@ class ProfileController extends AbstractApiController
     }
 
     #[Route('/', name: 'delete', methods: ['DELETE'])]
-    public function deleteAccount(
-        EntityManagerInterface $entityManager,
-    ): JsonResponse
+    public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();
         
-        $entityManager->remove($currentUser);
-        $entityManager->flush();
+        $this->entityManager->remove($currentUser);
+        $this->entityManager->flush();
 
         $response = new JsonResponse([
             'message' => 'api.messages.account_deleted',

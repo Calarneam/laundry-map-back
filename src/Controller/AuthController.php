@@ -21,6 +21,8 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
+use function count;
+
 #[Route('/api/auth', name: 'api_auth_')]
 class AuthController extends AbstractApiController
 {
