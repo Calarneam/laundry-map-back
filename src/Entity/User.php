@@ -213,9 +213,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $data;
     }
 
+    #[\Deprecated]
     public function eraseCredentials(): void 
     {
-        $this->password = null;
+      // nothing to erase
     }
 
     public function getProfessional(): ?Professional
