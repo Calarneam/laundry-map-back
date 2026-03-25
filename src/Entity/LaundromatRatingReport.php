@@ -6,6 +6,7 @@ use App\Repository\LaundromatRatingReportRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\Report;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatRatingReportRepository::class)]
 class LaundromatRatingReport
@@ -13,20 +14,27 @@ class LaundromatRatingReport
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: LaundromatRating::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private LaundromatRating $rating;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private User $user;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $date = null;
 
     #[ORM\Column(enumType: Report::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(Report::class)]
     private Report $reason;
 
     #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $comment = null;
 
     public function getRating(): LaundromatRating

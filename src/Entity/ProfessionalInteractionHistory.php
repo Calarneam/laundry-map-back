@@ -6,6 +6,7 @@ use App\Repository\ProfessionalInteractionHistoryRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\ProfessionalInteractionHistoryAction;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProfessionalInteractionHistoryRepository::class)]
 class ProfessionalInteractionHistory
@@ -17,19 +18,27 @@ class ProfessionalInteractionHistory
 
     #[ORM\ManyToOne(targetEntity: Administrator::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Professional::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Professional $professional = null;
 
     #[ORM\Column(enumType: ProfessionalInteractionHistoryAction::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(ProfessionalInteractionHistoryAction::class)]
     private ?ProfessionalInteractionHistoryAction $action = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $actionReason = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int

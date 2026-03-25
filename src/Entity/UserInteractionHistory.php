@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\UserInteractionHistoryRepository;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\UserInteractionAction;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserInteractionHistoryRepository::class)]
 class UserInteractionHistory
@@ -16,19 +17,26 @@ class UserInteractionHistory
     
     #[ORM\ManyToOne(targetEntity: Administrator::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?User $user = null;
 
     #[ORM\Column(enumType: UserInteractionAction::class)]
+    #[Assert\NotNull]
     private ?UserInteractionAction $action = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $actionReason = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int

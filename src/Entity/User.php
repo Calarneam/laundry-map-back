@@ -9,6 +9,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Enum\UserStatus;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
 #[ORM\UniqueConstraint(name: 'UNIQ_IDENTIFIER_EMAIL', fields: ['email'])]
@@ -20,18 +21,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Email]
+    #[Assert\NotBlank]
     private ?string $email = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $lastName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $firstName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $password = null;
 
     #[ORM\Column(length: 50, enumType: UserStatus::class)]
+    #[Assert\NotNull]
+    #[Assert\Type(UserStatus::class)]
     private ?UserStatus $status = null;
 
     #[ORM\Column(nullable: true)]
@@ -41,21 +49,25 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $oauthId = null;
 
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $lastConnectionDate = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private ?Professional $professional = null;
 
     #[ORM\ManyToMany(targetEntity: Laundromat::class)]
     #[ORM\JoinTable(name: 'user_favorite_laundromat')]
     #[ORM\JoinColumn(name: 'user_id', referencedColumnName: 'id')]
     #[ORM\InverseJoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
+    #[Assert\NotNull]
     private Collection $favoriteLaundromats;
 
     #[ORM\OneToMany(targetEntity: LaundromatRating::class, mappedBy: 'user', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $ratings;
 
     public function __construct()
@@ -118,7 +130,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
      */
     public function getRoles(): array
     {
-        return ['ROLE_USER'];
+        return $this->professional !== null ? ['ROLE_USER', 'ROLE_PROFESSIONAL'] : ['ROLE_USER'];
     }
 
     public function getPassword(): ?string

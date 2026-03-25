@@ -18,11 +18,11 @@ class UserChecker implements UserCheckerInterface
         }
 
         if ($user->getStatus() === UserStatus::Banned) {
-            throw new CustomUserMessageAccountStatusException('Your account has been banned.');
+            throw new CustomUserMessageAccountStatusException('api.messages.account_banned');
         }
 
         if ($user->getProfessional() !== null && $user->getProfessional()->getStatus() === ProfessionalStatus::Pending) {
-            throw new CustomUserMessageAccountStatusException('Your professional account is pending.');
+            throw new CustomUserMessageAccountStatusException('api.messages.professional_pending_validation');
         }
     }
 

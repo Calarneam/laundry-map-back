@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\LanguageRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LanguageRepository::class)]
 class Language
@@ -14,9 +15,13 @@ class Language
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $name = null;
 
     #[ORM\Column(length: 2)]
+    #[Assert\Length(max: 2)]
+    #[Assert\NotBlank]
     private ?string $code = null;
 
     public function getId(): ?int
