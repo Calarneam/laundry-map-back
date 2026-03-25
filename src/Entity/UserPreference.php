@@ -6,6 +6,7 @@ use App\Repository\UserPreferenceRepository;
 use App\Entity\Language;
 use App\Entity\Enum\Theme;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserPreferenceRepository::class)]
 class UserPreference
@@ -17,16 +18,20 @@ class UserPreference
 
     #[ORM\ManyToOne(targetEntity: User::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?User $user = null;
 
     #[ORM\ManyToOne(targetEntity: Language::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Language $language = null;
 
     #[ORM\Column(enumType: Theme::class)]
+    #[Assert\NotNull]
     private ?Theme $theme = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?bool $notifications = null;
 
     public function getId(): ?int

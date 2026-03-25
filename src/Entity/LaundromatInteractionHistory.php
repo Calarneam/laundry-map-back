@@ -6,6 +6,7 @@ use App\Repository\LaundromatInteractionHistoryRepository;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\LaundromatInteractionHistoryAction;
 use Doctrine\DBAL\Types\Types;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatInteractionHistoryRepository::class)]
 class LaundromatInteractionHistory
@@ -17,19 +18,27 @@ class LaundromatInteractionHistory
 
     #[ORM\ManyToOne(targetEntity: Administrator::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class)]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\Column(enumType: LaundromatInteractionHistoryAction::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(LaundromatInteractionHistoryAction::class)]
     private ?LaundromatInteractionHistoryAction $action = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $actionReason = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int

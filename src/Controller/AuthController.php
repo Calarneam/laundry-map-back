@@ -24,24 +24,28 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 #[Route('/api/auth', name: 'api_auth_')]
 class AuthController extends AbstractApiController
 {
+    public function __construct(
+        private readonly UserRepository $userRepository,
+        private readonly ProfessionalRepository $professionalRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly ValidatorInterface $validator,
+    ) {}
+
     #[Route('/register', name: 'register', methods: ['POST'])]
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        UserRepository $userRepository,
-        EntityManagerInterface $entityManager,
-        ValidatorInterface $validator
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email'])) {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
                     'error' => 'api.messages.email_already_used'
@@ -63,7 +67,7 @@ class AuthController extends AbstractApiController
             $user->setCreatedAt(new \DateTimeImmutable());
             $user->setUpdatedAt(new \DateTimeImmutable());
 
-            $errors = $validator->validate($user);
+            $errors = $this->validator->validate($user);
             if (count($errors) > 0) {
                 $errorsString = (string) $errors;
                 return $this->json([
@@ -71,8 +75,8 @@ class AuthController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
 
             return $this->json([
                 'message' => 'api.messages.user_created_successfully',
@@ -105,38 +109,29 @@ class AuthController extends AbstractApiController
     public function registerProfessional(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        UserRepository $userRepository,
-        ProfessionalRepository $professionalRepository,
-        EntityManagerInterface $entityManager,
-        ValidatorInterface $validator,
         HttpClientInterface $httpClient
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) || !isset($data['password']) || !isset($data['siren']) 
-                || !isset($data['companyName']) || !isset($data['codeApe']) 
-                || !isset($data['street']) || !isset($data['zipCode']) 
-                || !isset($data['city']) || !isset($data['country']) 
-                || !isset($data['firstName']) || !isset($data['lastName']))
-            {
+            if (!isset($data['email']) && !isset($data['siren'])) {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
                     'error' => 'api.messages.email_already_used'
                 ], Response::HTTP_CONFLICT);
             }
 
-            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
+            $existingProfessional = $this->professionalRepository->findOneBy(['siren' => $data['siren']]);
             if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
                 return $this->json([
                     'error' => 'api.messages.siren_not_found_or_already_used'
-                ], Response::HTTP_BAD_REQUEST);
+                ], Response::HTTP_CONFLICT);
             }
 
             $user = new User();
@@ -172,7 +167,7 @@ class AuthController extends AbstractApiController
             $user->setCreatedAt(new \DateTimeImmutable());
             $user->setUpdatedAt(new \DateTimeImmutable());
 
-            $errors = $validator->validate($user);
+            $errors = $this->validator->validate($user);
             if (count($errors) > 0) {
                 $errorsString = (string) $errors;
                 return $this->json([
@@ -180,8 +175,24 @@ class AuthController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            $errors = $this->validator->validate($professional);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $errors = $this->validator->validate($address);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
 
             return $this->json([
                 'message' => 'api.messages.professional_pending_validation',

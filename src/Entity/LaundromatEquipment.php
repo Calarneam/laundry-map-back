@@ -6,6 +6,7 @@ use App\Repository\LaundromatEquipmentRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\Equipment;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatEquipmentRepository::class)]
 class LaundromatEquipment
@@ -17,24 +18,32 @@ class LaundromatEquipment
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'equipments')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\Column(nullable: true)]
     private ?int $equipmentReference = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $name = null;
 
     #[ORM\Column(enumType: Equipment::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(Equipment::class)]
     private ?Equipment $type = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?int $capacity = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 2)]
+    #[Assert\NotNull]
     private ?string $price = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?int $duration = null;
 
     public function getId(): ?int

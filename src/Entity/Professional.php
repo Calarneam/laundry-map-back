@@ -8,6 +8,7 @@ use App\Entity\Enum\ProfessionalStatus;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\DBAL\Types\Types;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: ProfessionalRepository::class)]
 class Professional
@@ -19,27 +20,38 @@ class Professional
 
     #[ORM\OneToOne(inversedBy: 'professional')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?User $user = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?int $siren = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $companyName = null;
 
     #[ORM\Column(length: 10)]
+    #[Assert\Length(max: 10)]
+    #[Assert\NotBlank]
     private ?string $codeApe = null;
 
     #[ORM\Column(length: 50, enumType: ProfessionalStatus::class)]
+    #[Assert\NotNull]
+    #[Assert\Type(ProfessionalStatus::class)]
     private ?ProfessionalStatus $status = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $validationDate = null;
 
     #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private ?Address $address = null;
 
     #[ORM\OneToMany(targetEntity: Laundromat::class, mappedBy: 'professional')]
+    #[Assert\NotNull]
     private Collection $laundromats;
 
     public function __construct()

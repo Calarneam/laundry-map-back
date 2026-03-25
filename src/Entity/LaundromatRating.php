@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\LaundromatRatingRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatRatingRepository::class)]
 class LaundromatRating
@@ -16,34 +17,43 @@ class LaundromatRating
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'ratings')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'ratings')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?User $user = null;
 
     #[ORM\Column(nullable: true)]
     private ?int $rating = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $ratedAt = null;
 
     #[ORM\Column(length: 500, nullable: true)]
+    #[Assert\Length(max: 500)]
     private ?string $comment = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $commentedAt = null;
 
     #[ORM\Column(length: 500, nullable: true)]
+    #[Assert\Length(max: 500)]
     private ?string $response = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $respondedAt = null;
 
     #[ORM\Column(length: 500, nullable: true)]
+    #[Assert\Length(max: 500)]
     private ?string $commentDeletedReason = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $commentDeletedAt = null;
 
     public function getId(): ?int

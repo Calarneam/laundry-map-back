@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\LaundromatClosureRepository;
 use Doctrine\ORM\Mapping as ORM;
 use App\Entity\Enum\Day;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatClosureRepository::class)]
 class LaundromatClosure
@@ -16,21 +17,32 @@ class LaundromatClosure
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'closures')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\Column(enumType: Day::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(Day::class)]
     private ?Day $day = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $startTime = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $endTime = null;
 
     public function getId(): ?int
