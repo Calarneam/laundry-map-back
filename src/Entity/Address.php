@@ -6,6 +6,7 @@ use App\Repository\AddressRepository;
 use App\Entity\Enum\GeolocationStatus;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: AddressRepository::class)]
 class Address
@@ -16,18 +17,27 @@ class Address
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $address = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $street = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?int $zipCode = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $city = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $country = null;
 
     #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
@@ -37,6 +47,8 @@ class Address
     private ?string $longitude = null;
 
     #[ORM\Column(length: 50, enumType: GeolocationStatus::class)]
+    #[Assert\NotNull]
+    #[Assert\Type(GeolocationStatus::class)]
     private ?GeolocationStatus $geolocationStatus;
 
     public function getId(): ?int

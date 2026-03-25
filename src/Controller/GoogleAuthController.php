@@ -5,12 +5,15 @@ namespace App\Controller;
 use App\Entity\User;
 use App\Entity\Enum\UserStatus;
 use App\Repository\UserRepository;
+use App\Security\UserChecker;
 use Doctrine\ORM\EntityManagerInterface;
 use Lexik\Bundle\JWTAuthenticationBundle\Security\Http\Authentication\AuthenticationSuccessHandler;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Core\Exception\AccountStatusException;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 #[Route('/api/auth/google', name: 'api_auth_google_')]
@@ -20,6 +23,9 @@ class GoogleAuthController extends AbstractApiController
         private readonly HttpClientInterface $httpClient,
         private readonly EntityManagerInterface $entityManager,
         private readonly AuthenticationSuccessHandler $authenticationSuccessHandler,
+        private readonly UserChecker $userChecker,
+        private readonly ValidatorInterface $validator,
+        private readonly UserRepository $userRepository,
     ) {}
 
     #[Route('', name: 'redirect', methods: ['GET'])]
@@ -38,7 +44,7 @@ class GoogleAuthController extends AbstractApiController
     }
 
     #[Route('/callback', name: 'callback', methods: ['GET'])]
-    public function handleCallback(Request $request, UserRepository $userRepository): Response
+    public function handleCallback(Request $request): Response
     {
         $code = $request->query->get('code');
         $frontendUrl = $this->getParameter('app.frontend_url');
@@ -76,7 +82,7 @@ class GoogleAuthController extends AbstractApiController
             $lastName = $userInfo['family_name'] ?? null;
 
             // 3. Trouver ou créer l'utilisateur
-            $user = $userRepository->findOneBy(['email' => $email]);
+            $user = $this->userRepository->findOneBy(['email' => $email]);
 
             if (!$user) {
                 $user = new User();
@@ -87,6 +93,12 @@ class GoogleAuthController extends AbstractApiController
                 $user->setStatus(UserStatus::Active);
                 $user->setCreatedAt(new \DateTimeImmutable());
                 $user->setUpdatedAt(new \DateTimeImmutable());
+
+                $errors = $this->validator->validate($user);
+                if (count($errors) > 0) {
+                    return new RedirectResponse($frontendUrl . '/login?error=google_auth_failed');
+                }
+
                 $this->entityManager->persist($user);
             } else {
                 if (!$user->getOauthId()) {
@@ -95,10 +107,15 @@ class GoogleAuthController extends AbstractApiController
                 $user->setUpdatedAt(new \DateTimeImmutable());
             }
 
-            $user->setLastConnectionDate(new \DateTimeImmutable());
             $this->entityManager->flush();
 
-            // 4. Générer le JWT via Lexik et récupérer le cookie
+            try {
+                $this->userChecker->checkPreAuth($user);
+            } catch (AccountStatusException) {
+                return new RedirectResponse($frontendUrl . '/login?error=account_restricted');
+            }
+
+            // 4. Générer le JWT via Lexik et récupérer le cookie (lastConnectionDate via JwtAuthenticationSubscriber)
             $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
             $response = new RedirectResponse($frontendUrl);

@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Professional;
 use App\Entity\Address;
@@ -22,27 +21,31 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-#[Route('/api', name: 'api_')]
+#[Route('/api/auth', name: 'api_auth_')]
 class AuthController extends AbstractApiController
 {
-    #[Route('/auth/register', name: 'register', methods: ['POST'])]
+    public function __construct(
+        private readonly UserRepository $userRepository,
+        private readonly ProfessionalRepository $professionalRepository,
+        private readonly EntityManagerInterface $entityManager,
+        private readonly ValidatorInterface $validator,
+    ) {}
+
+    #[Route('/register', name: 'register', methods: ['POST'])]
     public function register(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        UserRepository $userRepository,
-        EntityManagerInterface $entityManager,
-        ValidatorInterface $validator
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email'])) {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
                     'error' => 'api.messages.email_already_used'
@@ -64,7 +67,7 @@ class AuthController extends AbstractApiController
             $user->setCreatedAt(new \DateTimeImmutable());
             $user->setUpdatedAt(new \DateTimeImmutable());
 
-            $errors = $validator->validate($user);
+            $errors = $this->validator->validate($user);
             if (count($errors) > 0) {
                 $errorsString = (string) $errors;
                 return $this->json([
@@ -72,8 +75,8 @@ class AuthController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
 
             return $this->json([
                 'message' => 'api.messages.user_created_successfully',
@@ -102,29 +105,32 @@ class AuthController extends AbstractApiController
         return false;
     }
 
-    #[Route('/auth/register/professional', name: 'register_professional', methods: ['POST'])]
+    #[Route('/register/professional', name: 'register_professional', methods: ['POST'])]
     public function registerProfessional(
         Request $request,
         UserPasswordHasherInterface $passwordHasher,
-        UserRepository $userRepository,
-        ProfessionalRepository $professionalRepository,
-        EntityManagerInterface $entityManager,
-        ValidatorInterface $validator,
         HttpClientInterface $httpClient
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) || !isset($data['password'])) {
+            if (!isset($data['email']) || !isset($data['siren'])) {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $existingUser = $userRepository->findOneBy(['email' => $data['email']]);
+            $existingUser = $this->userRepository->findOneBy(['email' => $data['email']]);
             if ($existingUser) {
                 return $this->json([
                     'error' => 'api.messages.email_already_used'
+                ], Response::HTTP_CONFLICT);
+            }
+
+            $existingProfessional = $this->professionalRepository->findOneBy(['siren' => $data['siren']]);
+            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
+                return $this->json([
+                    'error' => 'api.messages.siren_not_found_or_already_used'
                 ], Response::HTTP_CONFLICT);
             }
 
@@ -136,19 +142,13 @@ class AuthController extends AbstractApiController
             $user->setLastName($data['lastName']);
             $user->setEmail($data['email']);
 
-            $existingProfessional = $professionalRepository->findOneBy(['siren' => $data['siren']]);
-            if (!$this->SirenIsExisting($data['siren'], $httpClient) || $existingProfessional !== null) {
-                return $this->json([
-                    'error' => 'api.messages.siren_not_found_or_already_used'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
             $professional->setSiren($data['siren']);
             $professional->setCompanyName($data['companyName']);
             $professional->setCodeApe($data['codeApe']);
             $professional->setStatus(ProfessionalStatus::Pending);
 
             $address = new Address();
+
             $fullAddress = $data['street'] . ', ' . $data['zipCode'] . ' ' . $data['city'] . ', ' . $data['country'];
             $address->setAddress($fullAddress);
             $address->setStreet($data['street']);
@@ -167,7 +167,7 @@ class AuthController extends AbstractApiController
             $user->setCreatedAt(new \DateTimeImmutable());
             $user->setUpdatedAt(new \DateTimeImmutable());
 
-            $errors = $validator->validate($user);
+            $errors = $this->validator->validate($user);
             if (count($errors) > 0) {
                 $errorsString = (string) $errors;
                 return $this->json([
@@ -175,8 +175,24 @@ class AuthController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $entityManager->persist($user);
-            $entityManager->flush();
+            $errors = $this->validator->validate($professional);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $errors = $this->validator->validate($address);
+            if (count($errors) > 0) {
+                $errorsString = (string) $errors;
+                return $this->json([
+                    'error' => $errorsString
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
 
             return $this->json([
                 'message' => 'api.messages.professional_pending_validation',
@@ -189,7 +205,7 @@ class AuthController extends AbstractApiController
         }
     }
 
-    #[Route('/auth/login', name: 'login', methods: ['POST'])]
+    #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
         return $this->json([
@@ -197,7 +213,7 @@ class AuthController extends AbstractApiController
         ]);
     }
 
-    #[Route('/auth/logout', name: 'logout', methods: ['POST'])]
+    #[Route('/logout', name: 'logout', methods: ['POST'])]
     public function logout(): JsonResponse
     {
       $response = new JsonResponse(['message' => 'api.messages.logout_successfully']);
@@ -223,10 +239,9 @@ class AuthController extends AbstractApiController
     #[Route('/me', name: 'me', methods: ['GET'])]
     public function me(): JsonResponse
     {
-        $userType = $this->getCurrentUserType();
         $current = $this->getUser();
 
-        if ($userType === UserType::Admin && $current instanceof Administrator) {
+        if ($current->getRoles() === ['ROLE_ADMIN']) {
             return $this->json([
                 'type' => UserType::Admin->value,
                 'email' => $current->getUserIdentifier(),

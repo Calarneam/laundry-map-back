@@ -7,6 +7,7 @@ use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatRepository::class)]
 class Laundromat
@@ -16,8 +17,9 @@ class Laundromat
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Professional::class)]
+    #[ORM\ManyToOne(targetEntity: Professional::class, inversedBy: 'laundromats')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Professional $professional = null;
 
     #[ORM\Column(nullable: true)]
@@ -25,55 +27,74 @@ class Laundromat
 
     #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Address $address = null;
 
     #[ORM\OneToOne(targetEntity: Media::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Media $logo = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $establishmentName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $contactEmail = null;
 
     #[ORM\Column(type: Types::TEXT)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $description = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $deletedAt = null;
 
     #[ORM\OneToMany(targetEntity: LaundromatMedia::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $medias;
 
     #[ORM\ManyToMany(targetEntity: Service::class)]
     #[ORM\JoinTable(name: 'laundromat_service')]
     #[ORM\JoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
     #[ORM\InverseJoinColumn(name: 'service_id', referencedColumnName: 'id')]
+    #[Assert\NotNull]
     private Collection $services;
 
     #[ORM\OneToMany(targetEntity: LaundromatClosure::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $closures;
 
     #[ORM\OneToMany(targetEntity: LaundromatExceptionalClosure::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $exceptionalClosures;
 
     #[ORM\ManyToMany(targetEntity: PaymentMethod::class)]
     #[ORM\JoinTable(name: 'laundromat_payment_method')]
     #[ORM\JoinColumn(name: 'laundromat_id', referencedColumnName: 'id')]
     #[ORM\InverseJoinColumn(name: 'payment_method_id', referencedColumnName: 'id')]
+    #[Assert\NotNull]
     private Collection $paymentMethods;
 
     #[ORM\OneToMany(targetEntity: LaundromatRating::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $ratings;
 
     #[ORM\OneToMany(targetEntity: LaundromatEquipment::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
     private Collection $equipments;
 
     public function __construct()
