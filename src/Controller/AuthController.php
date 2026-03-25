@@ -114,7 +114,7 @@ class AuthController extends AbstractApiController
         try {
             $data = json_decode($request->getContent(), true);
 
-            if (!isset($data['email']) && !isset($data['siren'])) {
+            if (!isset($data['email']) || !isset($data['siren'])) {
                 return $this->json([
                     'error' => 'api.messages.missing_fields'
                 ], Response::HTTP_BAD_REQUEST);

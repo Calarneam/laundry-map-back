@@ -43,11 +43,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?UserStatus $status = null;
 
     #[ORM\Column(nullable: true)]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $createdAt = null;
 
     #[ORM\Column(nullable: true)]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -55,7 +53,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $oauthId = null;
 
     #[ORM\Column(nullable: true)]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $lastConnectionDate = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
