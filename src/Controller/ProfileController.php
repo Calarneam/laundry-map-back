@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Controller\AbstractApiController;
+use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Enum\UserType;
 use Doctrine\ORM\EntityManagerInterface;
@@ -112,5 +113,38 @@ class ProfileController extends AbstractApiController
         ], Response::HTTP_OK);
     }
 
+    #[Route('/', name: 'delete', methods: ['DELETE'])]
+    public function deleteAccount(
+        EntityManagerInterface $entityManager,
+    ): JsonResponse
+    {
+        $currentUser = $this->getUser();
+        
+        $entityManager->remove($currentUser);
+        $entityManager->flush();
+
+        $response = new JsonResponse([
+            'message' => 'api.messages.account_deleted',
+        ], Response::HTTP_OK);
+
+        $response->headers->clearCookie(
+            'BEARER',
+            '/',
+            null,
+            true,
+            true,
+            'lax'
+        );
+        $response->headers->clearCookie(
+            'USER_ROLE',
+            '/',
+            null,
+            true,
+            false,
+            'lax'
+        );
+
+        return $response;
+    }
 
 }
