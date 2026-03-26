@@ -5,6 +5,7 @@ namespace App\Entity;
 use App\Repository\LaundromatExceptionalClosureRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatExceptionalClosureRepository::class)]
 class LaundromatExceptionalClosure
@@ -14,20 +15,28 @@ class LaundromatExceptionalClosure
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'exceptionalClosures')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $startDate = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
     private ?string $reason = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[Assert\NotNull]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $addedDate = null;
 
     public function getId(): ?int

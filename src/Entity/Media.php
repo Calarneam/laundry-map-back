@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\MediaRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: MediaRepository::class)]
 class Media
@@ -14,15 +15,22 @@ class Media
     private ?int $id = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $location = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $originalName = null;
 
     #[ORM\Column]
+    #[Assert\NotNull]
     private ?int $size = null;
 
     #[ORM\Column]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $mimeType = null;
 
     public function getId(): ?int

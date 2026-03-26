@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\LaundromatMediaRepository;
 use Doctrine\ORM\Mapping as ORM;
+use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: LaundromatMediaRepository::class)]
 class LaundromatMedia
@@ -13,15 +14,19 @@ class LaundromatMedia
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Laundromat::class)]
+    #[ORM\ManyToOne(targetEntity: Laundromat::class, inversedBy: 'medias')]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
     #[ORM\OneToOne(targetEntity: Media::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
+    #[Assert\NotNull]
     private ?Media $media = null;
 
     #[ORM\Column(length: 255)]
+    #[Assert\Length(max: 255)]
+    #[Assert\NotBlank]
     private ?string $description = null;
 
     public function getId(): ?int
