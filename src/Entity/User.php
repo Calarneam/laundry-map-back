@@ -56,7 +56,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?\DateTimeImmutable $lastConnectionDate = null;
 
     #[ORM\OneToOne(mappedBy: 'user', cascade: ['persist', 'remove'])]
-    #[Assert\NotNull]
     private ?Professional $professional = null;
 
     #[ORM\ManyToMany(targetEntity: Laundromat::class)]
