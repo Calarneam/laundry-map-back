@@ -49,7 +49,6 @@ security:
       jwt: ~
 
   access_control:
-    - { path: ^/api/auth/test-mail, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/register/professional, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }

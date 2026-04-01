@@ -13,8 +13,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccountStatusException;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
+use Psr\Log\LoggerInterface;
 
 #[Route('/api/auth/google', name: 'api_auth_google_')]
 class GoogleAuthController extends AbstractApiController
@@ -26,6 +29,8 @@ class GoogleAuthController extends AbstractApiController
         private readonly UserChecker $userChecker,
         private readonly ValidatorInterface $validator,
         private readonly UserRepository $userRepository,
+        private readonly MailerInterface $mailer,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('', name: 'redirect', methods: ['GET'])]
@@ -100,6 +105,22 @@ class GoogleAuthController extends AbstractApiController
                 }
 
                 $this->entityManager->persist($user);
+
+                try {
+                    $welcomeEmail = (new Email())
+                        ->from('contact@sashacarton.fr')
+                        ->to($user->getEmail())
+                        ->subject('Bienvenue sur Laundry Map !')
+                        ->html(
+                            '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
+                            '<p>Votre compte a été créé avec succès sur Laundry Map via Google.</p>' .
+                            '<p>Vous pouvez dès maintenant découvrir les laveries autour de vous.</p>' .
+                            '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
+                        );
+                    $this->mailer->send($welcomeEmail);
+                } catch (\Exception $e) {
+                    $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
+                }
             } else {
                 if (!$user->getOauthId()) {
                     $user->setOauthId($googleId);

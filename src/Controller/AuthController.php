@@ -244,23 +244,6 @@ class AuthController extends AbstractApiController
         }
     }
 
-    #[Route('/test-mail', name: 'test_mail', methods: ['GET'])]
-    public function testMail(): JsonResponse
-    {
-        try {
-            $email = (new Email())
-                ->from('contact@sashacarton.fr')
-                ->to('contact@sashacarton.fr')
-                ->subject('Test Laundry Map SMTP')
-                ->text('Si vous recevez ce mail, le SMTP fonctionne.');
-            $this->mailer->send($email);
-            return $this->json(['message' => 'Mail sent successfully']);
-        } catch (\Exception $e) {
-            $this->logger->error('Test mail failed: ' . $e->getMessage());
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
     #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
