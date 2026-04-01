@@ -19,6 +19,8 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 use function count;
@@ -31,6 +33,7 @@ class AuthController extends AbstractApiController
         private readonly ProfessionalRepository $professionalRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
+        private readonly MailerInterface $mailer,
     ) {}
 
     #[Route('/register', name: 'register', methods: ['POST'])]
@@ -79,6 +82,18 @@ class AuthController extends AbstractApiController
 
             $this->entityManager->persist($user);
             $this->entityManager->flush();
+
+            $email = (new Email())
+                ->from('contact@sashacarton.fr')
+                ->to($user->getEmail())
+                ->subject('Bienvenue sur Laundry Map !')
+                ->html(
+                    '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
+                    '<p>Votre compte a été créé avec succès sur Laundry Map.</p>' .
+                    '<p>Vous pouvez dès maintenant vous connecter et découvrir les laveries autour de vous.</p>' .
+                    '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
+                );
+            $this->mailer->send($email);
 
             return $this->json([
                 'message' => 'api.messages.user_created_successfully',
@@ -195,6 +210,18 @@ class AuthController extends AbstractApiController
 
             $this->entityManager->persist($user);
             $this->entityManager->flush();
+
+            $email = (new Email())
+                ->from('contact@sashacarton.fr')
+                ->to($user->getEmail())
+                ->subject('Bienvenue sur Laundry Map - Compte Professionnel')
+                ->html(
+                    '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
+                    '<p>Votre compte professionnel a été créé avec succès sur Laundry Map.</p>' .
+                    '<p>Votre demande est en attente de validation. Vous recevrez un email dès que votre compte sera activé.</p>' .
+                    '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
+                );
+            $this->mailer->send($email);
 
             return $this->json([
                 'message' => 'api.messages.professional_pending_validation',
