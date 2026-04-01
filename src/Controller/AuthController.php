@@ -83,17 +83,21 @@ class AuthController extends AbstractApiController
             $this->entityManager->persist($user);
             $this->entityManager->flush();
 
-            $email = (new Email())
-                ->from('contact@sashacarton.fr')
-                ->to($user->getEmail())
-                ->subject('Bienvenue sur Laundry Map !')
-                ->html(
-                    '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
-                    '<p>Votre compte a été créé avec succès sur Laundry Map.</p>' .
-                    '<p>Vous pouvez dès maintenant vous connecter et découvrir les laveries autour de vous.</p>' .
-                    '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
-                );
-            $this->mailer->send($email);
+            try {
+                $email = (new Email())
+                    ->from('contact@sashacarton.fr')
+                    ->to($user->getEmail())
+                    ->subject('Bienvenue sur Laundry Map !')
+                    ->html(
+                        '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
+                        '<p>Votre compte a été créé avec succès sur Laundry Map.</p>' .
+                        '<p>Vous pouvez dès maintenant vous connecter et découvrir les laveries autour de vous.</p>' .
+                        '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
+                    );
+                $this->mailer->send($email);
+            } catch (\Exception $e) {
+                // Mail failed but account was created successfully
+            }
 
             return $this->json([
                 'message' => 'api.messages.user_created_successfully',
@@ -211,17 +215,21 @@ class AuthController extends AbstractApiController
             $this->entityManager->persist($user);
             $this->entityManager->flush();
 
-            $email = (new Email())
-                ->from('contact@sashacarton.fr')
-                ->to($user->getEmail())
-                ->subject('Bienvenue sur Laundry Map - Compte Professionnel')
-                ->html(
-                    '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
-                    '<p>Votre compte professionnel a été créé avec succès sur Laundry Map.</p>' .
-                    '<p>Votre demande est en attente de validation. Vous recevrez un email dès que votre compte sera activé.</p>' .
-                    '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
-                );
-            $this->mailer->send($email);
+            try {
+                $email = (new Email())
+                    ->from('contact@sashacarton.fr')
+                    ->to($user->getEmail())
+                    ->subject('Bienvenue sur Laundry Map - Compte Professionnel')
+                    ->html(
+                        '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
+                        '<p>Votre compte professionnel a été créé avec succès sur Laundry Map.</p>' .
+                        '<p>Votre demande est en attente de validation. Vous recevrez un email dès que votre compte sera activé.</p>' .
+                        '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
+                    );
+                $this->mailer->send($email);
+            } catch (\Exception $e) {
+                // Mail failed but account was created successfully
+            }
 
             return $this->json([
                 'message' => 'api.messages.professional_pending_validation',
