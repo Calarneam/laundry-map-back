@@ -22,6 +22,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use Psr\Log\LoggerInterface;
 
 use function count;
 
@@ -34,6 +35,7 @@ class AuthController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
         private readonly MailerInterface $mailer,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('/register', name: 'register', methods: ['POST'])]
@@ -96,7 +98,7 @@ class AuthController extends AbstractApiController
                     );
                 $this->mailer->send($email);
             } catch (\Exception $e) {
-                // Mail failed but account was created successfully
+                $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
             }
 
             return $this->json([
@@ -228,7 +230,7 @@ class AuthController extends AbstractApiController
                     );
                 $this->mailer->send($email);
             } catch (\Exception $e) {
-                // Mail failed but account was created successfully
+                $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
             }
 
             return $this->json([
