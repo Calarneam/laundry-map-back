@@ -17,7 +17,7 @@ services:
     App\DataFixtures\Purger\MysqlPurgerFactory:
         tags: [{ name: doctrine.fixtures.purger_factory, alias: mysql }]
 
-    App\Service\WiLineService:
+    App\Service\WiLineApiService:
         arguments:
             $apiUrl: '%env(WILINE_API_URL)%'
             $apiUser: '%env(WILINE_API_USER)%'
