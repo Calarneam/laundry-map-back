@@ -18,6 +18,22 @@ class WiLineApiService {
         $this->apiUrl = rtrim($apiUrl, '/');
     }
 
+    private function request(string $method, string $endpoint, array $options = []): array {
+        $token = $this->getToken();
+        $response = $this->httpClient->request($method, "{$this->apiUrl}{$endpoint}", [
+            'headers' => [
+                'Authorization' => "Bearer {$token}",
+            ],
+            ...$options,
+        ]);
+        $data = $response->toArray(false);
+        if (isset($data['error'])) {
+            $this->cache->delete('wi_line_token');
+            throw new \RuntimeException($data['error']);
+        }
+        return $data;
+    }
+
     private function getToken(): string {
         return $this->cache->get('wi_line_token', function (ItemInterface $item) {
             $response = $this->httpClient->request(Request::METHOD_POST, "{$this->apiUrl}/auth", [
@@ -50,14 +66,10 @@ class WiLineApiService {
     {
         return $this->cache->get('centrals_map_data', function (ItemInterface $item) {
             $item->expiresAfter(60);
-            $token = $this->getToken();
-            $response = $this->httpClient->request(Request::METHOD_GET, "{$this->apiUrl}/laundry_map/centrales", [
-                'headers' => [
-                    'Authorization' => "Bearer {$token}",
-                ],
-            ]);
-            $raw = $response->toArray();
-            $list = \is_array($raw) ? $raw : [];
+
+            $response = $this->request(Request::METHOD_GET, "/laundry_map/centrales");
+
+            $list = \is_array($response) ? $response : [];
 
             return array_map(
                 static fn(array $central): array => [
@@ -78,14 +90,27 @@ class WiLineApiService {
     public function getLaundryDetails(string $serial): array
     {
         return $this->cache->get("laundry_details_{$serial}", function (ItemInterface $item) use ($serial) {
-            $item->expiresAfter(60);
-            $token = $this->getToken();
-            $response = $this->httpClient->request(Request::METHOD_GET, "{$this->apiUrl}/laundry_map/centrales/{$serial}", [
-                'headers' => [
-                    'Authorization' => "Bearer {$token}",
-                ],
-            ]);
-            return $response->toArray();
+            $item->expiresAfter(30);
+
+            return $this->request(Request::METHOD_GET, "/laundry_map/centrales/{$serial}");
         });
+    }
+
+    /**
+     * Get the machines of a laundry from the Wi-Line API
+     * @param string $serial The id of the laundry
+     * @return array
+     */
+    public function getLaundryMachines(string $serial): array
+    {
+        $laundry = $this->getLaundryDetails($serial);
+        if (empty($laundry)) {
+            return [];
+        }
+
+        $machines = $laundry['machines'];
+        $filteredMachines = array_filter($machines, fn(array $machine): bool => $machine['machine_number'] !== 0);
+
+        return $filteredMachines;
     }
 }
