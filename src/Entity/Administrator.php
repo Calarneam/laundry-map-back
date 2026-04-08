@@ -65,6 +65,7 @@ class Administrator implements UserInterface, PasswordAuthenticatedUserInterface
         return ['ROLE_ADMIN'];
     }
     
+    #[\Deprecated]
     public function eraseCredentials(): void 
     {
         // nothing to erase
