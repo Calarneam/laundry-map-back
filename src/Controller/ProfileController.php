@@ -24,7 +24,7 @@ class ProfileController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
     ) {}
 
-    #[Route('/', name: 'get', methods: ['GET'])]
+    #[Route('', name: 'get', methods: ['GET'])]
     public function getProfile(): JsonResponse
     {
         $currentUser = $this->getUser();
@@ -118,7 +118,7 @@ class ProfileController extends AbstractApiController
         ], Response::HTTP_OK);
     }
 
-    #[Route('/', name: 'delete', methods: ['DELETE'])]
+    #[Route('', name: 'delete', methods: ['DELETE'])]
     public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();

@@ -111,6 +111,6 @@ class WiLineApiService {
         $machines = $laundry['machines'];
         $filteredMachines = array_filter($machines, fn(array $machine): bool => $machine['machine_number'] !== 0);
 
-        return $filteredMachines;
+        return array_values($filteredMachines);
     }
 }
