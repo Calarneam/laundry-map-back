@@ -90,12 +90,15 @@ class AuthController extends AbstractApiController
                     ->from('contact@sashacarton.fr')
                     ->to($user->getEmail())
                     ->subject('Bienvenue sur Laundry Map !')
-                    ->html(
-                        '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
-                        '<p>Votre compte a été créé avec succès sur Laundry Map.</p>' .
-                        '<p>Vous pouvez dès maintenant vous connecter et découvrir les laveries autour de vous.</p>' .
-                        '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
-                    );
+                    ->html($this->emailLayout('Bienvenue sur Laundry Map', '
+                        <h2 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;">Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' ! 👋</h2>
+                        <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">Votre compte a été créé avec succès sur <strong>Laundry Map</strong>.</p>
+                        <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Vous pouvez dès maintenant vous connecter et découvrir les laveries autour de vous.</p>
+                        <div style="text-align:center;margin:32px 0;">
+                          <a href="http://localhost:5173/login" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">Se connecter</a>
+                        </div>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">À bientôt,<br><strong>L\'équipe Laundry Map</strong></p>
+                    '));
                 $this->mailer->send($email);
             } catch (\Exception $e) {
                 $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
@@ -222,12 +225,15 @@ class AuthController extends AbstractApiController
                     ->from('contact@sashacarton.fr')
                     ->to($user->getEmail())
                     ->subject('Bienvenue sur Laundry Map - Compte Professionnel')
-                    ->html(
-                        '<h1>Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' !</h1>' .
-                        '<p>Votre compte professionnel a été créé avec succès sur Laundry Map.</p>' .
-                        '<p>Votre demande est en attente de validation. Vous recevrez un email dès que votre compte sera activé.</p>' .
-                        '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
-                    );
+                    ->html($this->emailLayout('Compte Professionnel Laundry Map', '
+                        <h2 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;">Bienvenue ' . htmlspecialchars($user->getFirstName()) . ' ! 🏪</h2>
+                        <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">Votre compte professionnel a été créé avec succès sur <strong>Laundry Map</strong>.</p>
+                        <div style="background-color:#fef9c3;border-left:4px solid #eab308;border-radius:6px;padding:16px;margin:24px 0;">
+                          <p style="margin:0;color:#854d0e;font-size:14px;font-weight:600;">⏳ Validation en cours</p>
+                          <p style="margin:8px 0 0;color:#854d0e;font-size:14px;">Votre demande est en cours d\'examen par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
+                        </div>
+                        <p style="margin:0;color:#6b7280;font-size:14px;">À bientôt,<br><strong>L\'équipe Laundry Map</strong></p>
+                    '));
                 $this->mailer->send($email);
             } catch (\Exception $e) {
                 $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
@@ -273,15 +279,18 @@ class AuthController extends AbstractApiController
                 ->from('contact@sashacarton.fr')
                 ->to($user->getEmail())
                 ->subject('Réinitialisation de votre mot de passe - Laundry Map')
-                ->html(
-                    '<h1>Réinitialisation du mot de passe</h1>' .
-                    '<p>Bonjour ' . htmlspecialchars($user->getFirstName()) . ',</p>' .
-                    '<p>Vous avez demandé la réinitialisation de votre mot de passe.</p>' .
-                    '<p><a href="' . htmlspecialchars($resetUrl) . '">Cliquez ici pour réinitialiser votre mot de passe</a></p>' .
-                    '<p>Ce lien expire dans 1 heure.</p>' .
-                    '<p>Si vous n\'avez pas fait cette demande, ignorez cet email.</p>' .
-                    '<p>L\'équipe Laundry Map</p>'
-                );
+                ->html($this->emailLayout('Réinitialisation du mot de passe', '
+                    <h2 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;">Réinitialisation du mot de passe 🔐</h2>
+                    <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">Bonjour <strong>' . htmlspecialchars($user->getFirstName()) . '</strong>,</p>
+                    <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">Vous avez demandé la réinitialisation de votre mot de passe. Cliquez sur le bouton ci-dessous pour en choisir un nouveau.</p>
+                    <div style="text-align:center;margin:32px 0;">
+                      <a href="' . htmlspecialchars($resetUrl) . '" style="display:inline-block;background-color:#2563eb;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:8px;font-size:15px;font-weight:600;">Réinitialiser mon mot de passe</a>
+                    </div>
+                    <div style="background-color:#fef2f2;border-left:4px solid #ef4444;border-radius:6px;padding:16px;margin:24px 0;">
+                      <p style="margin:0;color:#991b1b;font-size:14px;">⚠️ Ce lien expire dans <strong>1 heure</strong>. Si vous n\'avez pas fait cette demande, ignorez cet email.</p>
+                    </div>
+                    <p style="margin:0;color:#6b7280;font-size:14px;"><strong>L\'équipe Laundry Map</strong></p>
+                '));
             $this->mailer->send($email);
         } catch (\Exception $e) {
             $this->logger->error('Failed to send reset email: ' . $e->getMessage());
@@ -381,12 +390,16 @@ class AuthController extends AbstractApiController
                 ->from('contact@sashacarton.fr')
                 ->to($currentUser->getEmail())
                 ->subject('Bienvenue sur Laundry Map - Compte Professionnel')
-                ->html(
-                    '<h1>Bienvenue ' . htmlspecialchars($currentUser->getFirstName()) . ' !</h1>' .
-                    '<p>Votre profil professionnel a été complété avec succès sur Laundry Map.</p>' .
-                    '<p>Votre demande est en attente de validation. Vous recevrez un email dès que votre compte sera activé.</p>' .
-                    '<p>À bientôt,<br>L\'équipe Laundry Map</p>'
-                );
+                ->html($this->emailLayout('Compte Professionnel Laundry Map', '
+                    <h2 style="margin:0 0 16px;color:#111827;font-size:22px;font-weight:700;">Profil professionnel complété ! 🏪</h2>
+                    <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">Bonjour <strong>' . htmlspecialchars($currentUser->getFirstName()) . '</strong>,</p>
+                    <p style="margin:0 0 12px;color:#374151;font-size:15px;line-height:1.6;">Votre profil professionnel a été complété avec succès sur <strong>Laundry Map</strong>.</p>
+                    <div style="background-color:#fef9c3;border-left:4px solid #eab308;border-radius:6px;padding:16px;margin:24px 0;">
+                      <p style="margin:0;color:#854d0e;font-size:14px;font-weight:600;">⏳ Validation en cours</p>
+                      <p style="margin:8px 0 0;color:#854d0e;font-size:14px;">Votre demande est en cours d\'examen par notre équipe. Vous recevrez un email dès que votre compte sera activé.</p>
+                    </div>
+                    <p style="margin:0;color:#6b7280;font-size:14px;">À bientôt,<br><strong>L\'équipe Laundry Map</strong></p>
+                '));
             $this->mailer->send($email);
         } catch (\Exception $e) {
             $this->logger->error('Failed to send pro welcome email: ' . $e->getMessage());
@@ -395,6 +408,47 @@ class AuthController extends AbstractApiController
         return $this->json([
             'message' => 'api.messages.professional_pending_validation',
         ], Response::HTTP_CREATED);
+    }
+
+    private function emailLayout(string $title, string $content): string
+    {
+        return '<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>' . $title . '</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',Roboto,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9;padding:40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#2563eb;border-radius:12px 12px 0 0;padding:32px 40px;text-align:center;">
+              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.5px;">🧺 Laundry Map</h1>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background-color:#ffffff;padding:40px;border-radius:0 0 12px 12px;">
+              ' . $content . '
+              <hr style="border:none;border-top:1px solid #e5e7eb;margin:32px 0;">
+              <p style="margin:0;color:#9ca3af;font-size:13px;text-align:center;">
+                © ' . date('Y') . ' Laundry Map · Cet email a été envoyé automatiquement, merci de ne pas y répondre.
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>';
     }
 
     #[Route('/login', name: 'login', methods: ['POST'])]

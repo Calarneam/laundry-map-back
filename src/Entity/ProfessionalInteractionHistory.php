@@ -22,7 +22,7 @@ class ProfessionalInteractionHistory
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Professional::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull]
     private ?Professional $professional = null;
 
