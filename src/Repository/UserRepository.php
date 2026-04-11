@@ -42,7 +42,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->setParameter('status', ProfessionalStatus::Pending)
             ->setParameter('newSince', new \DateTimeImmutable('-1 day'))
             ->select(
-                "u.id, u.firstName, u.lastName, u.email, u.createdAt, p.siren, p.companyName,
+                "p.id, u.firstName, u.lastName, u.email, u.createdAt, p.siren, p.companyName,
                 CASE WHEN u.createdAt >= :newSince THEN true ELSE false END AS isNew"
             )
             ->getQuery()

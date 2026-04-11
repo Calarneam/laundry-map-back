@@ -34,8 +34,10 @@ class GoogleAuthController extends AbstractApiController
     ) {}
 
     #[Route('', name: 'redirect', methods: ['GET'])]
-    public function redirectToGoogle(): RedirectResponse
+    public function redirectToGoogle(Request $request): RedirectResponse
     {
+        $intent = $request->query->get('intent', '');
+
         $params = http_build_query([
             'client_id' => $this->getParameter('app.google_client_id'),
             'redirect_uri' => $this->getParameter('app.google_redirect_uri'),
@@ -43,6 +45,7 @@ class GoogleAuthController extends AbstractApiController
             'scope' => 'openid email profile',
             'access_type' => 'offline',
             'prompt' => 'consent',
+            'state' => $intent,
         ]);
 
         return new RedirectResponse('https://accounts.google.com/o/oauth2/v2/auth?' . $params);
@@ -139,7 +142,12 @@ class GoogleAuthController extends AbstractApiController
             // 4. Générer le JWT via Lexik et récupérer le cookie (lastConnectionDate via JwtAuthenticationSubscriber)
             $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
-            $response = new RedirectResponse($frontendUrl);
+            $state = $request->query->get('state', '');
+            $redirectUrl = $state === 'pro'
+                ? $frontendUrl . '/register/professional/onboarding'
+                : $frontendUrl;
+
+            $response = new RedirectResponse($redirectUrl);
             foreach ($authResponse->headers->getCookies() as $cookie) {
                 $response->headers->setCookie($cookie);
             }

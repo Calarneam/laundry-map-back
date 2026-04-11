@@ -47,6 +47,9 @@ class ProfileController extends AbstractApiController
             'lastName' => $currentUser->getLastName(),
             'email' => $currentUser->getUserIdentifier(),
             'roles' => $currentUser->getRoles(),
+            'hasPassword' => $currentUser->getPassword() !== null,
+            'hasOauth' => $currentUser->getOauthId() !== null,
+            'avatarUrl' => $currentUser->getAvatarUrl(),
         ];
 
         $professional = $currentUser->getProfessional();
@@ -89,6 +92,34 @@ class ProfileController extends AbstractApiController
         ], Response::HTTP_OK);
     }
 
+    #[Route('/set-password', name: 'set_password', methods: ['PATCH'])]
+    public function setPassword(
+        Request $request,
+        UserPasswordHasherInterface $passwordHasher,
+    ): JsonResponse {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser instanceof User) {
+            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        if ($currentUser->getPassword() !== null) {
+            return $this->json(['error' => 'api.messages.password_already_set'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $data = json_decode($request->getContent(), true);
+
+        if (!isset($data['newPassword'])) {
+            return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $hashedPassword = $passwordHasher->hashPassword($currentUser, $data['newPassword']);
+        $currentUser->setPassword($hashedPassword);
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'api.messages.password_changed'], Response::HTTP_OK);
+    }
+
     #[Route('/fullname', name: 'update_fullname', methods: ['PATCH'])]
     public function updateFullname(
         Request $request,
@@ -118,7 +149,57 @@ class ProfileController extends AbstractApiController
         ], Response::HTTP_OK);
     }
 
-    #[Route('', name: 'delete', methods: ['DELETE'])]
+    #[Route('/avatar', name: 'upload_avatar', methods: ['POST'])]
+    public function uploadAvatar(Request $request): JsonResponse
+    {
+        $currentUser = $this->getUser();
+
+        if (!$currentUser instanceof User) {
+            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $file = $request->files->get('avatar');
+        if (!$file) {
+            return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!in_array($file->getMimeType(), $allowedMimes, true)) {
+            return $this->json(['error' => 'api.messages.invalid_file_type'], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($file->getSize() > 2 * 1024 * 1024) {
+            return $this->json(['error' => 'api.messages.file_too_large'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $uploadDir = $this->getParameter('kernel.project_dir') . '/public/uploads/avatars';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        // Remove old avatar file if exists
+        $oldUrl = $currentUser->getAvatarUrl();
+        if ($oldUrl) {
+            $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $oldUrl;
+            if (file_exists($oldPath)) {
+                unlink($oldPath);
+            }
+        }
+
+        $filename = $currentUser->getId() . '_' . time() . '.' . $file->guessExtension();
+        $file->move($uploadDir, $filename);
+
+        $avatarUrl = '/uploads/avatars/' . $filename;
+        $currentUser->setAvatarUrl($avatarUrl);
+        $this->entityManager->flush();
+
+        return $this->json([
+            'message' => 'api.messages.avatar_updated',
+            'avatarUrl' => $avatarUrl,
+        ]);
+    }
+
+    #[Route('/', name: 'delete', methods: ['DELETE'])]
     public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();

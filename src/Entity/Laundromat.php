@@ -3,6 +3,7 @@
 namespace App\Entity;
 
 use App\Repository\LaundromatRepository;
+use App\Entity\Enum\LaundromatStatus;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Doctrine\Common\Collections\Collection;
@@ -31,9 +32,13 @@ class Laundromat
     private ?Address $address = null;
 
     #[ORM\OneToOne(targetEntity: Media::class, cascade: ['persist', 'remove'])]
-    #[ORM\JoinColumn(nullable: false)]
-    #[Assert\NotNull]
+    #[ORM\JoinColumn(nullable: true)]
     private ?Media $logo = null;
+
+    #[ORM\Column(length: 50, enumType: LaundromatStatus::class)]
+    #[Assert\NotNull]
+    #[Assert\Type(LaundromatStatus::class)]
+    private ?LaundromatStatus $status = null;
 
     #[ORM\Column(length: 255)]
     #[Assert\Length(max: 255)]
@@ -260,8 +265,6 @@ class Laundromat
     public function getClosures(): ?Collection
     {
         return $this->closures;
-
-        return $this;
     }
 
     public function setClosures(?Collection $closures): static
@@ -315,6 +318,18 @@ class Laundromat
     public function setEquipments(?Collection $equipments): static
     {
         $this->equipments = $equipments;
+
+        return $this;
+    }
+
+    public function getStatus(): ?LaundromatStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(LaundromatStatus $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }
