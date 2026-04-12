@@ -18,6 +18,7 @@ use Doctrine\Persistence\ObjectManager;
 use App\DataFixtures\ProfessionalFixtures;
 use App\DataFixtures\ServiceFixtures;
 use App\DataFixtures\PaymentMethodFixtures;
+use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Professional;
 use App\Entity\Service;
 use App\Entity\PaymentMethod;
@@ -65,6 +66,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $laundromat->setDescription('Laverie self-service ouverte 7j/7. Machines à laver et sèche-linge haute capacité. Paiement CB, pièces ou espèces. Accès PMR.');
         $laundromat->setAddedDate($now);
         $laundromat->setUpdatedAt($now);
+        $laundromat->setStatus(LaundromatStatus::Validated);
         $laundromat->setWiLineReference(12345);
 
         $laundromat->getServices()->add($serviceLavage);
