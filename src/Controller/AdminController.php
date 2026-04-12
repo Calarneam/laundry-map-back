@@ -2,9 +2,11 @@
 
 namespace App\Controller;
 
+use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Enum\ProfessionalInteractionHistoryAction;
 use App\Entity\Enum\ProfessionalStatus;
 use App\Entity\ProfessionalInteractionHistory;
+use App\Repository\LaundromatRepository;
 use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
@@ -21,8 +23,99 @@ class AdminController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly UserRepository $userRepository,
         private readonly ProfessionalRepository $professionalRepository,
+        private readonly LaundromatRepository $laundromatRepository,
         private readonly ValidatorInterface $validator,
     ) {}
+
+    #[Route('/stats', name: 'stats', methods: ['GET'])]
+    public function stats(): JsonResponse
+    {
+        try {
+            $pendingPros = count($this->userRepository->findPendingProfessionals());
+            $pendingLaundries = count($this->laundromatRepository->findBy([
+                'status' => LaundromatStatus::Pending,
+                'deletedAt' => null,
+            ]));
+
+            return $this->json([
+                'pendingPros' => $pendingPros,
+                'pendingLaundries' => $pendingLaundries,
+                'reports' => 0,
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/laundries/pending', name: 'laundries_pending', methods: ['GET'])]
+    public function listPendingLaundries(): JsonResponse
+    {
+        try {
+            $laundromats = $this->laundromatRepository->findBy(
+                ['status' => LaundromatStatus::Pending, 'deletedAt' => null],
+                ['addedDate' => 'ASC']
+            );
+
+            $data = array_map(function ($l) {
+                $address = $l->getAddress();
+                $pro = $l->getProfessional();
+                $user = $pro?->getUser();
+                return [
+                    'id' => $l->getId(),
+                    'establishmentName' => $l->getEstablishmentName(),
+                    'description' => $l->getDescription(),
+                    'addedDate' => $l->getAddedDate()?->format('Y-m-d'),
+                    'updatedAt' => $l->getUpdatedAt()?->format('Y-m-d'),
+                    'address' => $address ? [
+                        'street' => $address->getStreet(),
+                        'zipCode' => $address->getZipCode(),
+                        'city' => $address->getCity(),
+                    ] : null,
+                    'professional' => [
+                        'id' => $pro?->getId(),
+                        'companyName' => $pro?->getCompanyName(),
+                        'siren' => $pro?->getSiren(),
+                        'firstName' => $user?->getFirstName(),
+                        'lastName' => $user?->getLastName(),
+                        'email' => $user?->getUserIdentifier(),
+                    ],
+                ];
+            }, $laundromats);
+
+            return $this->json($data, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/laundries/{id}/status', name: 'laundries_update_status', methods: ['PATCH'])]
+    public function updateLaundromatStatus(int $id, Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true);
+            $status = $data['status'] ?? null;
+
+            if (!in_array($status, ['validated', 'refused'], true)) {
+                return $this->json(['error' => 'api.messages.invalid_status'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $laundromat = $this->laundromatRepository->find($id);
+            if (!$laundromat || $laundromat->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $laundromat->setStatus($status === 'validated' ? LaundromatStatus::Validated : LaundromatStatus::Refused);
+            $this->entityManager->flush();
+
+            return $this->json([
+                'message' => $status === 'validated'
+                    ? 'api.messages.laundry_validated'
+                    : 'api.messages.laundry_refused',
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 
     #[Route('/pros/pending', name: 'pros_pending', methods: ['GET'])]
     public function listPendingProfessionals(): JsonResponse {

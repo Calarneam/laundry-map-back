@@ -27,22 +27,18 @@ class LaundromatClosure
 
     #[ORM\Column]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $startTime = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $endTime = null;
 
     public function getId(): ?int

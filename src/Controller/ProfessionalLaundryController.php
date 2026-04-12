@@ -6,6 +6,7 @@ use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
 use App\Entity\Enum\GeolocationStatus;
+use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Enum\ProfessionalStatus;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
@@ -241,6 +242,9 @@ class ProfessionalLaundryController extends AbstractApiController
 
         if ($laundromat->getAddedDate() === null) {
             $laundromat->setAddedDate($now);
+            $laundromat->setStatus(LaundromatStatus::Pending);
+        } else {
+            $laundromat->setStatus(LaundromatStatus::Pending);
         }
 
         $wiLineClientCode = $data['wiLineClientCode'] ?? null;
@@ -507,6 +511,7 @@ class ProfessionalLaundryController extends AbstractApiController
                 ], Response::HTTP_BAD_REQUEST);
             }
 
+            $fileSize = $photo->getSize() ?? 0;
             $extension = $photo->guessExtension() ?: pathinfo($photo->getClientOriginalName(), PATHINFO_EXTENSION);
             $filename = 'laundry-' . bin2hex(random_bytes(8)) . ($extension ? '.' . $extension : '');
             $photo->move($uploadDirectory, $filename);
@@ -514,7 +519,7 @@ class ProfessionalLaundryController extends AbstractApiController
             $media = new Media();
             $media->setLocation('/uploads/laundry-photos/' . $filename);
             $media->setOriginalName($photo->getClientOriginalName());
-            $media->setSize($photo->getSize() ?? 0);
+            $media->setSize($fileSize);
             $media->setMimeType($mimeType);
 
             $mediaRelation = new LaundromatMedia();
@@ -602,8 +607,9 @@ class ProfessionalLaundryController extends AbstractApiController
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
             'wiLineReference' => $laundromat->getWiLineReference(),
-            'addedDate' => $laundromat->getAddedDate(),
-            'updatedAt' => $laundromat->getUpdatedAt(),
+            'status' => $laundromat->getStatus()?->value,
+            'addedDate' => $laundromat->getAddedDate()?->format('Y-m-d'),
+            'updatedAt' => $laundromat->getUpdatedAt()?->format('Y-m-d'),
             'address' => [
                 'street' => $address?->getStreet(),
                 'zipCode' => $address?->getZipCode(),
