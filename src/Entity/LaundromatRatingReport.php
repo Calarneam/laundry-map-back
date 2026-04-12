@@ -13,13 +13,13 @@ class LaundromatRatingReport
 {
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: LaundromatRating::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull]
     private LaundromatRating $rating;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
-    #[ORM\JoinColumn(nullable: false)]
+    #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     #[Assert\NotNull]
     private User $user;
 

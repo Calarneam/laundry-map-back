@@ -36,6 +36,14 @@ security:
       pattern: ^/api/auth/google
       stateless: true
       security: false
+    forgot_password:
+      pattern: ^/api/auth/forgot-password
+      stateless: true
+      security: false
+    reset_password:
+      pattern: ^/api/auth/reset-password
+      stateless: true
+      security: false
     admin:
       pattern: ^/api/admin
       stateless: true
@@ -52,10 +60,14 @@ security:
     - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/register/professional, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/forgot-password, roles: PUBLIC_ACCESS }
+    - { path: ^/api/auth/reset-password, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/google, roles: PUBLIC_ACCESS }
     - { path: ^/api/auth/logout, roles: IS_AUTHENTICATED_FULLY }
     - { path: ^/api/admin, roles: ROLE_ADMIN }
+    - { path: ^/api/pro, roles: ROLE_PROFESSIONAL }
     - { path: ^/api/professional, roles: ROLE_PROFESSIONAL }
+    - { path: ^/api/pro, roles: ROLE_PROFESSIONAL }
     - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
 when@test:
