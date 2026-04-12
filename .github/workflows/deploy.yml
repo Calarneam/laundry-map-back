@@ -24,8 +24,8 @@ jobs:
                     cd /var/www/laundrymap-back
                     git fetch origin
                     git reset --hard origin/main
-                    composer install --no-dev --optimize-autoloader
-                    rm -rf var/cache/prod
+                    composer install --no-dev --optimize-autoloader --no-scripts
+                    sudo rm -rf var/cache/prod var/cache/dev
                     php bin/console cache:clear --env=prod
                     php bin/console doctrine:migrations:migrate --no-interaction --env=prod
                     php bin/console doctrine:schema:update --force --env=prod
