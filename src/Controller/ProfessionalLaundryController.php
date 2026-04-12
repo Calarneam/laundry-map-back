@@ -11,6 +11,7 @@ use App\Entity\Enum\ProfessionalStatus;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
+use App\Entity\LaundromatExceptionalClosure;
 use App\Entity\LaundromatMedia;
 use App\Entity\Media;
 use App\Entity\Professional;
@@ -116,6 +117,30 @@ class ProfessionalLaundryController extends AbstractApiController
         }
     }
 
+    #[Route('/{id}', name: 'show', methods: ['GET'])]
+    public function show(int $id): JsonResponse
+    {
+        try {
+            $professional = $this->getValidatedProfessional();
+            if (!$professional instanceof Professional) {
+                return $professional;
+            }
+
+            $laundry = $this->laundromatRepository->find($id);
+            if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($laundry->getProfessional()?->getId() !== $professional->getId()) {
+                return $this->json(['error' => 'api.messages.laundry_forbidden'], Response::HTTP_FORBIDDEN);
+            }
+
+            return $this->json($this->serializeLaundry($laundry), Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/{id}', name: 'update', methods: ['PUT'])]
     public function update(int $id, Request $request): JsonResponse
     {
@@ -161,6 +186,154 @@ class ProfessionalLaundryController extends AbstractApiController
             return $this->json([
                 'error' => $e->getMessage(),
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{id}', name: 'delete', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
+    {
+        try {
+            $professional = $this->getValidatedProfessional();
+            if (!$professional instanceof Professional) {
+                return $professional;
+            }
+
+            $laundry = $this->laundromatRepository->find($id);
+            if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($laundry->getProfessional()?->getId() !== $professional->getId()) {
+                return $this->json(['error' => 'api.messages.laundry_forbidden'], Response::HTTP_FORBIDDEN);
+            }
+
+            $laundry->setDeletedAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'api.messages.laundry_deleted'], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{id}/exceptional-closures', name: 'exceptional_closures_list', methods: ['GET'])]
+    public function listExceptionalClosures(int $id): JsonResponse
+    {
+        try {
+            $professional = $this->getValidatedProfessional();
+            if (!$professional instanceof Professional) {
+                return $professional;
+            }
+
+            $laundry = $this->laundromatRepository->find($id);
+            if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($laundry->getProfessional()?->getId() !== $professional->getId()) {
+                return $this->json(['error' => 'api.messages.laundry_forbidden'], Response::HTTP_FORBIDDEN);
+            }
+
+            $closures = $laundry->getExceptionalClosures();
+            $data = [];
+            foreach ($closures as $closure) {
+                $data[] = [
+                    'id' => $closure->getId(),
+                    'startDate' => $closure->getStartDate()?->format('Y-m-d'),
+                    'endDate' => $closure->getEndDate()?->format('Y-m-d'),
+                    'reason' => $closure->getReason(),
+                ];
+            }
+
+            return $this->json($data, Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{id}/exceptional-closures', name: 'exceptional_closures_create', methods: ['POST'])]
+    public function createExceptionalClosure(int $id, Request $request): JsonResponse
+    {
+        try {
+            $professional = $this->getValidatedProfessional();
+            if (!$professional instanceof Professional) {
+                return $professional;
+            }
+
+            $laundry = $this->laundromatRepository->find($id);
+            if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($laundry->getProfessional()?->getId() !== $professional->getId()) {
+                return $this->json(['error' => 'api.messages.laundry_forbidden'], Response::HTTP_FORBIDDEN);
+            }
+
+            $data = json_decode($request->getContent(), true);
+
+            $startDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($data['startDate'] ?? ''));
+            $endDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($data['endDate'] ?? ''));
+
+            if (!$startDate instanceof \DateTimeImmutable || !$endDate instanceof \DateTimeImmutable) {
+                return $this->json(['error' => 'api.messages.invalid_date_format'], Response::HTTP_BAD_REQUEST);
+            }
+
+            if ($startDate > $endDate) {
+                return $this->json(['error' => 'api.messages.invalid_date_range'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $closure = new LaundromatExceptionalClosure();
+            $closure->setLaundromat($laundry);
+            $closure->setStartDate($startDate);
+            $closure->setEndDate($endDate);
+            $closure->setAddedDate(new \DateTimeImmutable());
+            if (!empty($data['reason'])) {
+                $closure->setReason((string) $data['reason']);
+            }
+
+            $this->entityManager->persist($closure);
+            $this->entityManager->flush();
+
+            return $this->json([
+                'id' => $closure->getId(),
+                'startDate' => $closure->getStartDate()->format('Y-m-d'),
+                'endDate' => $closure->getEndDate()->format('Y-m-d'),
+                'reason' => $closure->getReason(),
+            ], Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{id}/exceptional-closures/{closureId}', name: 'exceptional_closures_delete', methods: ['DELETE'])]
+    public function deleteExceptionalClosure(int $id, int $closureId): JsonResponse
+    {
+        try {
+            $professional = $this->getValidatedProfessional();
+            if (!$professional instanceof Professional) {
+                return $professional;
+            }
+
+            $laundry = $this->laundromatRepository->find($id);
+            if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
+                return $this->json(['error' => 'api.messages.laundry_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($laundry->getProfessional()?->getId() !== $professional->getId()) {
+                return $this->json(['error' => 'api.messages.laundry_forbidden'], Response::HTTP_FORBIDDEN);
+            }
+
+            $closure = $this->entityManager->find(LaundromatExceptionalClosure::class, $closureId);
+            if (!$closure instanceof LaundromatExceptionalClosure || $closure->getLaundromat()?->getId() !== $id) {
+                return $this->json(['error' => 'api.messages.not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->entityManager->remove($closure);
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'api.messages.deleted'], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

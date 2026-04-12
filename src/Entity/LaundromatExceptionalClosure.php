@@ -22,12 +22,10 @@ class LaundromatExceptionalClosure
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $startDate = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\Column(length: 255, nullable: true)]
@@ -36,7 +34,6 @@ class LaundromatExceptionalClosure
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-    #[Assert\DateTime]
     private ?\DateTimeImmutable $addedDate = null;
 
     public function getId(): ?int
