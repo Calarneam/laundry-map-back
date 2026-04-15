@@ -3,6 +3,7 @@
 namespace App\Repository;
 
 use App\Entity\Laundromat;
+use App\Entity\Enum\LaundromatStatus;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -15,6 +16,21 @@ class LaundromatRepository extends ServiceEntityRepository
     {
         parent::__construct($registry, Laundromat::class);
     }
+
+    public function findPendingLaundromats(): array
+    {
+        return $this->createQueryBuilder('l')
+            ->andWhere('l.status = :status')
+            ->andWhere('l.deletedAt IS NULL')
+            ->join('l.professional', 'p')
+            ->join('p.user', 'u')
+            ->join('l.address', 'a')
+            ->setParameter('status', LaundromatStatus::Pending)
+            ->select('l.id, l.establishmentName, l.description, l.addedDate, l.updatedAt, p.companyName, u.firstName, u.lastName, u.email, a.street, a.zipCode, a.city, l.status')
+            ->orderBy('l.addedDate', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }   
 
     //    /**
     //     * @return Laundromat[] Returns an array of Laundromat objects

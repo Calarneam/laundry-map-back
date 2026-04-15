@@ -32,10 +32,7 @@ class AdminController extends AbstractApiController
     {
         try {
             $pendingPros = count($this->userRepository->findPendingProfessionals());
-            $pendingLaundries = count($this->laundromatRepository->findBy([
-                'status' => LaundromatStatus::Pending,
-                'deletedAt' => null,
-            ]));
+            $pendingLaundries = count($this->laundromatRepository->findPendingLaundromats());
 
             return $this->json([
                 'pendingPros' => $pendingPros,
@@ -51,38 +48,9 @@ class AdminController extends AbstractApiController
     public function listPendingLaundries(): JsonResponse
     {
         try {
-            $laundromats = $this->laundromatRepository->findBy(
-                ['status' => LaundromatStatus::Pending, 'deletedAt' => null],
-                ['addedDate' => 'ASC']
-            );
+            $laundromats = $this->laundromatRepository->findPendingLaundromats();
 
-            $data = array_map(function ($l) {
-                $address = $l->getAddress();
-                $pro = $l->getProfessional();
-                $user = $pro?->getUser();
-                return [
-                    'id' => $l->getId(),
-                    'establishmentName' => $l->getEstablishmentName(),
-                    'description' => $l->getDescription(),
-                    'addedDate' => $l->getAddedDate()?->format('Y-m-d'),
-                    'updatedAt' => $l->getUpdatedAt()?->format('Y-m-d'),
-                    'address' => $address ? [
-                        'street' => $address->getStreet(),
-                        'zipCode' => $address->getZipCode(),
-                        'city' => $address->getCity(),
-                    ] : null,
-                    'professional' => [
-                        'id' => $pro?->getId(),
-                        'companyName' => $pro?->getCompanyName(),
-                        'siren' => $pro?->getSiren(),
-                        'firstName' => $user?->getFirstName(),
-                        'lastName' => $user?->getLastName(),
-                        'email' => $user?->getUserIdentifier(),
-                    ],
-                ];
-            }, $laundromats);
-
-            return $this->json($data, Response::HTTP_OK);
+            return $this->json($laundromats, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -137,14 +105,7 @@ class AdminController extends AbstractApiController
     ): JsonResponse {
         try {
             $data = json_decode($request->getContent(), true);
-
-            if (!isset($data['status'])) {
-                return $this->json([
-                    'error' => 'api.messages.missing_fields'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            $status = $data['status'];
+            $status = $data['status'] ?? null;
 
             if (!in_array($status, ['validated', 'refused'], true)) {
                 return $this->json([
