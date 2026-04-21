@@ -17,43 +17,32 @@ class LaundromatRepository extends ServiceEntityRepository
         parent::__construct($registry, Laundromat::class);
     }
 
+    public function countPendingLaundromats(): int
+    {
+        return (int) $this->createQueryBuilder('l')
+            ->select('COUNT(l.id)')
+            ->andWhere('(l.status = :status OR l.pendingChanges IS NOT NULL)')
+            ->andWhere('l.deletedAt IS NULL')
+            ->setParameter('status', LaundromatStatus::Pending)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     public function findPendingLaundromats(): array
     {
         return $this->createQueryBuilder('l')
-            ->andWhere('l.status = :status')
+            ->andWhere('(l.status = :status OR l.pendingChanges IS NOT NULL)')
             ->andWhere('l.deletedAt IS NULL')
             ->join('l.professional', 'p')
             ->join('p.user', 'u')
             ->join('l.address', 'a')
             ->setParameter('status', LaundromatStatus::Pending)
-            ->select('l.id, l.establishmentName, l.description, l.addedDate, l.updatedAt, p.companyName, u.firstName, u.lastName, u.email, a.street, a.zipCode, a.city, l.status')
+            ->setParameter('newSince', new \DateTimeImmutable('-1 day'))
+            ->select(
+                'l.id, l.establishmentName, l.addedDate, l.updatedAt, l.contactEmail, l.status, u.firstName, u.lastName, u.email, p.companyName, p.siren, a.street, a.zipCode, a.city, CASE WHEN l.pendingChanges IS NOT NULL THEN true ELSE false END AS hasPendingChanges, CASE WHEN l.status = :status THEN CASE WHEN l.addedDate >= :newSince THEN true ELSE false END ELSE false END AS isNew'
+            )
             ->orderBy('l.addedDate', 'DESC')
             ->getQuery()
             ->getResult();
-    }   
-
-    //    /**
-    //     * @return Laundromat[] Returns an array of Laundromat objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
-
-    //    public function findOneBySomeField($value): ?Laundromat
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    }
 }

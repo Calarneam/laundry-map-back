@@ -19,7 +19,6 @@ use function count;
 #[Route('/api/user/profile', name: 'api_profile_')]
 class ProfileController extends AbstractApiController
 {
-
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
     ) {}
