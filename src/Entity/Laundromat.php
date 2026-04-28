@@ -50,7 +50,7 @@ class Laundromat
     private ?string $contactEmail = null;
 
     #[ORM\Column(type: Types::TEXT)]
-    #[Assert\Length(max: 255)]
+    #[Assert\Length(max: 570)]
     #[Assert\NotBlank]
     private ?string $description = null;
 

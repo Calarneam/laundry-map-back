@@ -198,7 +198,7 @@ class ProfileController extends AbstractApiController
         ]);
     }
 
-    #[Route('/', name: 'delete', methods: ['DELETE'])]
+    #[Route('', name: 'delete', methods: ['DELETE'])]
     public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();
