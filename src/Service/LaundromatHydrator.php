@@ -22,6 +22,17 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class LaundromatHydrator
 {
+    private const MESSAGE_MISSING_FIELDS = 'api.messages.missing_fields';
+    private const MESSAGE_INVALID_SCHEDULE = 'api.messages.invalid_schedule';
+    private const MESSAGE_INVALID_EQUIPMENT_TYPE = 'api.messages.invalid_equipment_type';
+    private const MESSAGE_INVALID_EQUIPMENT = 'api.messages.invalid_equipment';
+    private const MESSAGE_INVALID_PHOTO = 'api.messages.invalid_photo';
+    private const MESSAGE_INVALID_ADDRESS = 'api.messages.invalid_address';
+    private const MESSAGE_INVALID_LAUNDROMAT = 'api.messages.invalid_laundromat';
+    private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
+    private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
+    private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
@@ -41,7 +52,7 @@ class LaundromatHydrator
             || !isset($data['zipCode'])
             || !isset($data['city'])
         ) {
-            return $this->jsonError('api.messages.missing_fields', Response::HTTP_BAD_REQUEST);
+            return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         $address = $laundromat->getAddress() ?? new Address();
@@ -102,39 +113,39 @@ class LaundromatHydrator
 
     private function validateLaundromatGraph(Laundromat $laundromat, Address $address): ?JsonResponse
     {
-        $addressErrors = $this->validator->validate($address);
-        if (count($addressErrors) > 0) {
-            return $this->jsonError((string) $addressErrors, Response::HTTP_BAD_REQUEST);
+        $addressError = $this->validationErrorResponse($address, self::MESSAGE_INVALID_ADDRESS);
+        if ($addressError instanceof JsonResponse) {
+            return $addressError;
         }
 
-        $laundromatErrors = $this->validator->validate($laundromat);
-        if (count($laundromatErrors) > 0) {
-            return $this->jsonError((string) $laundromatErrors, Response::HTTP_BAD_REQUEST);
+        $laundromatError = $this->validationErrorResponse($laundromat, self::MESSAGE_INVALID_LAUNDROMAT);
+        if ($laundromatError instanceof JsonResponse) {
+            return $laundromatError;
         }
 
         foreach ($laundromat->getClosures() as $closure) {
-            $closureErrors = $this->validator->validate($closure);
-            if (count($closureErrors) > 0) {
-                return $this->jsonError((string) $closureErrors, Response::HTTP_BAD_REQUEST);
+            $closureError = $this->validationErrorResponse($closure, self::MESSAGE_INVALID_LAUNDROMAT_CLOSURE);
+            if ($closureError instanceof JsonResponse) {
+                return $closureError;
             }
         }
 
         foreach ($laundromat->getEquipments() as $equipment) {
-            $equipmentErrors = $this->validator->validate($equipment);
-            if (count($equipmentErrors) > 0) {
-                return $this->jsonError((string) $equipmentErrors, Response::HTTP_BAD_REQUEST);
+            $equipmentError = $this->validationErrorResponse($equipment, self::MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT);
+            if ($equipmentError instanceof JsonResponse) {
+                return $equipmentError;
             }
         }
 
         foreach ($laundromat->getMedias() as $mediaRelation) {
-            $mediaRelationErrors = $this->validator->validate($mediaRelation);
-            if (count($mediaRelationErrors) > 0) {
-                return $this->jsonError((string) $mediaRelationErrors, Response::HTTP_BAD_REQUEST);
+            $mediaRelationError = $this->validationErrorResponse($mediaRelation, self::MESSAGE_INVALID_LAUNDROMAT_MEDIA);
+            if ($mediaRelationError instanceof JsonResponse) {
+                return $mediaRelationError;
             }
 
-            $mediaErrors = $this->validator->validate($mediaRelation->getMedia());
-            if (count($mediaErrors) > 0) {
-                return $this->jsonError((string) $mediaErrors, Response::HTTP_BAD_REQUEST);
+            $mediaError = $this->validationErrorResponse($mediaRelation->getMedia(), self::MESSAGE_INVALID_PHOTO);
+            if ($mediaError instanceof JsonResponse) {
+                return $mediaError;
             }
         }
 
@@ -191,7 +202,7 @@ class LaundromatHydrator
         }
 
         if (!is_array($openingHours) || $openingHours === []) {
-            return $this->jsonError('api.messages.missing_fields', Response::HTTP_BAD_REQUEST);
+            return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         foreach ($openingHours as $openingHour) {
@@ -199,19 +210,19 @@ class LaundromatHydrator
                 !is_array($openingHour)
                 || !isset($openingHour['day'], $openingHour['startTime'], $openingHour['endTime'])
             ) {
-                return $this->jsonError('api.messages.missing_fields', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
             }
 
             $day = Day::tryFrom((string) $openingHour['day']);
             if (!$day instanceof Day) {
-                return $this->jsonError('api.messages.invalid_schedule', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_SCHEDULE, Response::HTTP_BAD_REQUEST);
             }
 
             $startTime = \DateTimeImmutable::createFromFormat('H:i', (string) $openingHour['startTime']);
             $endTime = \DateTimeImmutable::createFromFormat('H:i', (string) $openingHour['endTime']);
 
             if (!$startTime instanceof \DateTimeImmutable || !$endTime instanceof \DateTimeImmutable || $startTime >= $endTime) {
-                return $this->jsonError('api.messages.invalid_schedule', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_SCHEDULE, Response::HTTP_BAD_REQUEST);
             }
 
             $closure = new LaundromatClosure();
@@ -248,12 +259,12 @@ class LaundromatHydrator
                 !is_array($machine)
                 || !isset($machine['type'], $machine['capacity'], $machine['price'], $machine['duration'])
             ) {
-                return $this->jsonError('api.messages.missing_fields', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
             }
 
             $type = Equipment::tryFrom((string) $machine['type']);
             if (!$type instanceof Equipment) {
-                return $this->jsonError('api.messages.invalid_equipment_type', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_EQUIPMENT_TYPE, Response::HTTP_BAD_REQUEST);
             }
 
             $capacity = (int) $machine['capacity'];
@@ -261,7 +272,7 @@ class LaundromatHydrator
             $price = number_format((float) $machine['price'], 2, '.', '');
 
             if ($capacity <= 0 || $duration <= 0 || (float) $price < 0) {
-                return $this->jsonError('api.messages.invalid_equipment', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_EQUIPMENT, Response::HTTP_BAD_REQUEST);
             }
 
             $equipment = new LaundromatEquipment();
@@ -305,11 +316,11 @@ class LaundromatHydrator
         foreach ($photos as $index => $photo) {
             $mimeType = $photo->getMimeType() ?? '';
             if (!in_array($mimeType, ['image/jpeg', 'image/png'], true)) {
-                return $this->jsonError('api.messages.invalid_photo', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_PHOTO, Response::HTTP_BAD_REQUEST);
             }
 
             if ($photo->getSize() !== null && $photo->getSize() > 5 * 1024 * 1024) {
-                return $this->jsonError('api.messages.invalid_photo', Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_PHOTO, Response::HTTP_BAD_REQUEST);
             }
 
             $fileSize = $photo->getSize() ?? 0;
@@ -346,6 +357,16 @@ class LaundromatHydrator
         }
 
         return 'Lave-linge ' . $capacity . ' kg';
+    }
+
+    private function validationErrorResponse(mixed $value, string $message): ?JsonResponse
+    {
+        $errors = $this->validator->validate($value);
+        if (count($errors) === 0) {
+            return null;
+        }
+
+        return $this->jsonError($message, Response::HTTP_BAD_REQUEST);
     }
 
     private function jsonError(string $error, int $status): JsonResponse
