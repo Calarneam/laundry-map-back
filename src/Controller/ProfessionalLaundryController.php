@@ -30,10 +30,7 @@ class ProfessionalLaundryController extends AbstractApiController
     public function list(): JsonResponse
     {
         try {
-            $professional = $this->getValidatedProfessional();
-            if ($professional instanceof JsonResponse) {
-                return $professional;
-            }
+            $professional = $this->getProfessional();
 
             $laundromats = $this->laundromatRepository->findBy(
                 ['professional' => $professional, 'deletedAt' => null],
@@ -50,10 +47,7 @@ class ProfessionalLaundryController extends AbstractApiController
     public function create(Request $request): JsonResponse
     {
         try {
-            $professional = $this->getValidatedProfessional();
-            if ($professional instanceof JsonResponse) {
-                return $professional;
-            }
+            $professional = $this->getProfessional();
 
             $data = $this->extractPayload($request);
             if (!is_array($data)) {
@@ -252,27 +246,9 @@ class ProfessionalLaundryController extends AbstractApiController
         }
     }
 
-    private function getValidatedProfessional(): Professional|JsonResponse
-    {
-        $currentUser = $this->getUser();
-        if (!$currentUser instanceof User) {
-            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
-        }
-
-        $professional = $currentUser->getProfessional();
-        if (!$professional instanceof Professional || $professional->getStatus() !== ProfessionalStatus::Validated) {
-            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
-        }
-
-        return $professional;
-    }
-
     private function getOwnedLaundry(int $id): Laundromat|JsonResponse
     {
-        $professional = $this->getValidatedProfessional();
-        if ($professional instanceof JsonResponse) {
-            return $professional;
-        }
+        $professional = $this->getProfessional();
 
         $laundry = $this->laundromatRepository->find($id);
         if (!$laundry instanceof Laundromat || $laundry->getDeletedAt() !== null) {
