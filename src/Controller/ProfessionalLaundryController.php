@@ -319,6 +319,9 @@ class ProfessionalLaundryController extends AbstractApiController
             $machines[] = [
                 'id' => $equipment->getId(),
                 'name' => $equipment->getName(),
+                'nameTranslationParams' => [
+                    'capacity' => $equipment->getCapacity(),
+                ],
                 'type' => $equipment->getType()?->value,
                 'capacity' => $equipment->getCapacity(),
                 'price' => $equipment->getPrice(),

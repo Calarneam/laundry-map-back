@@ -32,6 +32,9 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+    private const EQUIPMENT_WASHER_WITH_CAPACITY = 'api.equipment.washer_with_capacity';
+    private const EQUIPMENT_DRYER_WITH_CAPACITY = 'api.equipment.dryer_with_capacity';
+    private const MEDIA_LAUNDRY_PHOTO = 'api.media.laundry_photo';
 
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
@@ -281,7 +284,7 @@ class LaundromatHydrator
             $equipment->setCapacity($capacity);
             $equipment->setPrice($price);
             $equipment->setDuration($duration);
-            $equipment->setName($this->buildEquipmentName($type, $capacity));
+            $equipment->setName($this->buildEquipmentName($type));
 
             if (isset($machine['equipmentReference']) && is_numeric($machine['equipmentReference'])) {
                 $equipment->setEquipmentReference((int) $machine['equipmentReference']);
@@ -338,6 +341,7 @@ class LaundromatHydrator
             $mediaRelation->setLaundromat($laundromat);
             $mediaRelation->setMedia($media);
             $mediaRelation->setDescription('Laundry photo ' . ($index + 1));
+            $mediaRelation->setDescription(self::MEDIA_LAUNDRY_PHOTO);
 
             if ($index === 0 || !($laundromat->getLogo() instanceof Media) || !file_exists(dirname(__DIR__, 2) . '/public' . $laundromat->getLogo()->getLocation())) {
                 $laundromat->setLogo($media);
@@ -350,13 +354,13 @@ class LaundromatHydrator
         return null;
     }
 
-    private function buildEquipmentName(Equipment $type, int $capacity): string
+    private function buildEquipmentName(Equipment $type): string
     {
         if ($type === Equipment::Dryer) {
-            return 'Sèche-linge ' . $capacity . ' kg';
+            return self::EQUIPMENT_DRYER_WITH_CAPACITY;
         }
 
-        return 'Lave-linge ' . $capacity . ' kg';
+        return self::EQUIPMENT_WASHER_WITH_CAPACITY;
     }
 
     private function validationErrorResponse(mixed $value, string $message): ?JsonResponse
