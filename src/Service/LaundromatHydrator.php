@@ -340,7 +340,6 @@ class LaundromatHydrator
             $mediaRelation = new LaundromatMedia();
             $mediaRelation->setLaundromat($laundromat);
             $mediaRelation->setMedia($media);
-            $mediaRelation->setDescription('Laundry photo ' . ($index + 1));
             $mediaRelation->setDescription(self::MEDIA_LAUNDRY_PHOTO);
 
             if ($index === 0 || !($laundromat->getLogo() instanceof Media) || !file_exists(dirname(__DIR__, 2) . '/public' . $laundromat->getLogo()->getLocation())) {
