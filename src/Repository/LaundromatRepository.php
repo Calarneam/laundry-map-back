@@ -65,43 +65,49 @@ class LaundromatRepository extends ServiceEntityRepository
         $rsm->addRootEntityFromClassMetadata(Laundromat::class, 'l');
         $rsm->addScalarResult('distance_meters', 'distanceMeters', 'float');
 
+        $pointJson = json_encode([
+            'type' => 'Point',
+            'coordinates' => [$longitude, $latitude],
+        ], JSON_THROW_ON_ERROR);
+
         $sql = 'SELECT '
             . $rsm->generateSelectClause(['l' => 'l'])
-            . ', ST_Distance_Sphere(POINT(a.longitude, a.lattitude), POINT(:lng, :lat)) AS distance_meters '
+            . ', ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
             . 'FROM laundromat l '
             . 'INNER JOIN address a ON a.id = l.address_id '
             . 'WHERE l.status = :status '
             . 'AND l.deleted_at IS NULL '
-            . 'AND a.lattitude IS NOT NULL '
-            . 'AND a.longitude IS NOT NULL '
+            . 'AND a.position IS NOT NULL '
             . 'AND a.geolocation_status = :geo_status '
-            . 'AND ST_Distance_Sphere(POINT(a.longitude, a.lattitude), POINT(:lng, :lat)) <= :radius ';
+            . 'AND ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) <= :radius ';
 
         $params = [
-            'lat' => (string) $latitude,
-            'lng' => (string) $longitude,
+            'point' => $pointJson,
             'radius' => $radiusMeters,
             'status' => LaundromatStatus::Validated->value,
             'geo_status' => GeolocationStatus::Geolocated->value,
         ];
 
         $types = [
-            'lat' => ParameterType::STRING,
-            'lng' => ParameterType::STRING,
+            'point' => ParameterType::STRING,
             'radius' => ParameterType::INTEGER,
             'status' => ParameterType::STRING,
             'geo_status' => ParameterType::STRING,
         ];
 
         $addFilter = function (string $filterKey, string $paramName, string $subQuery) use (&$sql, &$params, &$types, $filters) {
-            $items = $filters[$filterKey] ?? [];
-            if (is_array($items)) {
-                $validItems = array_filter($items, fn($item) => is_string($item) && $item !== '');
-                if (!empty($validItems)) {
-                    $sql .= $subQuery;
-                    $params[$paramName] = array_values($validItems);
-                    $types[$paramName] = ArrayParameterType::STRING;
-                }
+            $items = $filters[$filterKey] ?? null;
+            if ($items === null || $items === '' || $items === []) {
+                return;
+            }
+            if (!\is_array($items)) {
+                $items = [$items];
+            }
+            $validItems = array_filter($items, static fn ($item): bool => \is_string($item) && $item !== '');
+            if ($validItems !== []) {
+                $sql .= $subQuery;
+                $params[$paramName] = array_values($validItems);
+                $types[$paramName] = ArrayParameterType::STRING;
             }
         };
 

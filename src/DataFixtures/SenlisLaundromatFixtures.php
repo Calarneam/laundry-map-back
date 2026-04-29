@@ -154,8 +154,7 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
         $address->setZipCode(60300);
         $address->setCity('Senlis');
         $address->setCountry('FR');
-        $address->setLattitude($site['lat']);
-        $address->setLongitude($site['lng']);
+        $address->setPosition(Address::point((float) $site['lng'], (float) $site['lat']));
         $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 
