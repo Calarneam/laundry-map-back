@@ -43,8 +43,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $address->setZipCode(75013);
         $address->setCity('Paris');
         $address->setCountry('FR');
-        $address->setLattitude('48.8323');
-        $address->setLongitude('2.3772');
+        $address->setPosition(Address::point(2.3772, 48.8323));
         $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 

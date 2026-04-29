@@ -40,11 +40,11 @@ class Address
     #[Assert\NotBlank]
     private ?string $country = null;
 
-    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
-    private ?string $lattitude = null;
-
-    #[ORM\Column(type: Types::DECIMAL, precision: 10, scale: 0, nullable: true)]
-    private ?string $longitude = null;
+    /**
+     * GeoJSON Point (RFC 7946) : { "type": "Point", "coordinates": [longitude, latitude] }.
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $position = null;
 
     #[ORM\Column(length: 50, enumType: GeolocationStatus::class)]
     #[Assert\NotNull]
@@ -116,28 +116,35 @@ class Address
         return $this;
     }
 
-    public function getLattitude(): ?string
+    public function getPosition(): ?array
     {
-        return $this->lattitude;
+        return $this->position;
     }
 
-    public function setLattitude(string $lattitude): static
+    /**
+     * @param array{type: string, coordinates: list<float|int|string>}|null $position
+     */
+    public function setPosition(?array $position): static
     {
-        $this->lattitude = $lattitude;
+        if ($position !== null) {
+            if (($position['type'] ?? null) !== 'Point' || !isset($position['coordinates']) || !\is_array($position['coordinates']) || \count($position['coordinates']) < 2) {
+                throw new \InvalidArgumentException('position must be a GeoJSON Point with coordinates [longitude, latitude].');
+            }
+        }
+        $this->position = $position;
 
         return $this;
     }
 
-    public function getLongitude(): ?string
+    /**
+     * @return array{type: 'Point', coordinates: array{0: float, 1: float}}
+     */
+    public static function point(float $longitude, float $latitude): array
     {
-        return $this->longitude;
-    }
-
-    public function setLongitude(string $longitude): static
-    {
-        $this->longitude = $longitude;
-
-        return $this;
+        return [
+            'type' => 'Point',
+            'coordinates' => [$longitude, $latitude],
+        ];
     }
 
     public function getGeolocationStatus(): ?GeolocationStatus
