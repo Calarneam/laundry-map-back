@@ -16,7 +16,7 @@ abstract class AbstractApiController extends AbstractController
     protected function getProfessional(): Professional
     {
         $user = parent::getUser();
-        if (!$user instanceof User || $user->getRoles() !== ['ROLE_PRO']) {
+        if (!$user instanceof User || !in_array('ROLE_PROFESSIONAL', $user->getRoles())) {
             throw new \Exception('Professional not found');
         }
         

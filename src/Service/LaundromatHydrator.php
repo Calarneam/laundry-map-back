@@ -85,7 +85,10 @@ class LaundromatHydrator
             : '';
         $laundromat->setWiLineReference($wiLineClientCode !== '' ? $wiLineClientCode : null);
 
-        $this->syncServices($laundromat, $data['services'] ?? []);
+        $servicesError = $this->syncServices($laundromat, $data['services'] ?? []);
+        if ($servicesError instanceof JsonResponse) {
+            return $servicesError;
+        }
 
         $closuresError = $this->syncClosures($laundromat, $data['openingHours'] ?? [], (bool) ($data['isOpenTwentyFourSeven'] ?? false), $now);
         if ($closuresError instanceof JsonResponse) {
@@ -157,13 +160,13 @@ class LaundromatHydrator
         return null;
     }
 
-    private function syncServices(Laundromat $laundromat, mixed $services): void
+    private function syncServices(Laundromat $laundromat, mixed $services): ?JsonResponse
     {
         $laundromatServices = $laundromat->getServices();
         $laundromatServices?->clear();
 
         if (!\is_array($services)) {
-            return;
+            return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         foreach ($services as $serviceName) {
@@ -175,13 +178,13 @@ class LaundromatHydrator
             $service = $this->serviceRepository->findOneBy(['name' => $normalizedServiceName]);
 
             if (!$service instanceof Service) {
-                $service = new Service();
-                $service->setName($normalizedServiceName);
-                $this->entityManager->persist($service);
+                return $this->jsonError(self::MESSAGE_INVALID_LAUNDROMAT, Response::HTTP_BAD_REQUEST);
             }
 
             $laundromatServices?->add($service);
         }
+
+        return null;
     }
 
     private function syncClosures(Laundromat $laundromat, mixed $openingHours, bool $isOpenTwentyFourSeven, \DateTimeImmutable $now): ?JsonResponse
