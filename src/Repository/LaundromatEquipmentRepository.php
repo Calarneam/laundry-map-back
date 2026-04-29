@@ -2,6 +2,8 @@
 
 namespace App\Repository;
 
+use App\Entity\Enum\Equipment;
+use App\Entity\Laundromat;
 use App\Entity\LaundromatEquipment;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
@@ -16,28 +18,27 @@ class LaundromatEquipmentRepository extends ServiceEntityRepository
         parent::__construct($registry, LaundromatEquipment::class);
     }
 
-    //    /**
-    //     * @return LaundromatEquipment[] Returns an array of LaundromatEquipment objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function countEquipmentsByType(Laundromat $laundromat): array
+    {
+        $rows = $this->createQueryBuilder('le')
+            ->select('le.type AS type')
+            ->addSelect('COUNT(le.id) AS equipmentCount')
+            ->andWhere('le.laundromat = :laundromat')
+            ->setParameter('laundromat', $laundromat)
+            ->groupBy('le.type')
+            ->getQuery()
+            ->getArrayResult();
 
-    //    public function findOneBySomeField($value): ?LaundromatEquipment
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        $counts = array_fill_keys(
+            array_map(fn(Equipment $equipment) => $equipment->value, Equipment::cases()),
+            0
+        );
+
+        foreach ($rows as $row) {
+            $type = $row['type'] instanceof Equipment ? $row['type']->value : $row['type'];
+            $counts[$type] = (int) $row['equipmentCount'];
+        }
+
+        return $counts;
+    }
 }

@@ -4,7 +4,11 @@ namespace App\Controller;
 
 use App\Controller\AbstractApiController;
 use App\Entity\Laundromat;
+use App\Entity\LaundromatEquipment;
+use App\Entity\Media;
 use App\Entity\User;
+use App\Entity\Service;
+use App\Repository\LaundromatEquipmentRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,6 +20,7 @@ class UserController extends AbstractApiController
 {
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
+        private readonly LaundromatEquipmentRepository $laundromatEquipmentRepository,
     ) {}
 
     #[Route('/favorites', name: 'get_favorites', methods: ['GET'])]
@@ -27,8 +32,21 @@ class UserController extends AbstractApiController
         }
 
         $favorites = $user->getFavoriteLaundromats();
+        $data = $favorites->map(fn(Laundromat $laundromat) => [
+            'id' => $laundromat->getId(),
+            'name' => $laundromat->getEstablishmentName(),
+            'medias' => $laundromat->getMedias()->map(fn(Media $media) => [
+                'id' => $media->getId(),
+                'url' => $media->getLocation(),
+                'name' => $media->getOriginalName(),
+            ])->toArray(),
+            'address' => $laundromat->getAddress(),
+            'services' => $laundromat->getServices()->map(fn(Service $service) => $service->getName())->toArray(),
+            'equipments' => $this->laundromatEquipmentRepository->countEquipmentsByType($laundromat),
+            'isWiLineReference' => $laundromat->getWiLineReference() !== null,
+        ])->toArray();
 
-        return $this->json($favorites, Response::HTTP_OK);
+        return $this->json($data, Response::HTTP_OK);
     }
 
     #[Route('/favorites', name: 'add_favorite', methods: ['POST'])]
