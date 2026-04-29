@@ -10,6 +10,7 @@ use App\Entity\Professional;
 use App\Entity\User;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatHydrator;
+use App\Service\WiLineApiService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,7 +25,71 @@ class ProfessionalLaundryController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatHydrator $laundromatHydrator,
+        private readonly WiLineApiService $wiLineApiService,
     ) {}
+
+    #[Route('/wiline/{serial}/machines', name: 'wiline_machines', methods: ['GET'])]
+    public function getWiLineMachines(string $serial): JsonResponse
+    {
+        try {
+            $this->getProfessional();
+
+            $machines = $this->wiLineApiService->getLaundryMachines(trim($serial));
+            $normalizedMachines = [];
+            $warnings = [];
+
+            foreach ($machines as $machine) {
+                if (!is_array($machine)) {
+                    continue;
+                }
+
+                if (($machine['out_of_order'] ?? false) === true) {
+                    continue;
+                }
+
+                $categoryText = strtoupper((string) ($machine['category_text'] ?? ''));
+                $type = match ($categoryText) {
+                    'WASH' => 'washer',
+                    'DRY' => 'dryer',
+                    default => null,
+                };
+
+                if ($type === null) {
+                    $warnings[] = 'api.messages.wiline_unsupported_machine_category';
+                    continue;
+                }
+
+                $rawTypeName = (string) ($machine['type_name'] ?? '');
+                preg_match('/(\d+)\s*kg/i', $rawTypeName, $capacityMatch);
+                $capacity = isset($capacityMatch[1]) ? (int) $capacityMatch[1] : 8;
+
+                $rawPrice = (float) ($machine['price'] ?? 0);
+                $priceInEuros = $rawPrice > 0 ? round($rawPrice / 100, 2) : 0.0;
+
+                $rawDuration = (int) ($machine['duration'] ?? 0);
+                $duration = $rawDuration > 120 ? (int) round($rawDuration / 60) : $rawDuration;
+                if ($duration <= 0) {
+                    $duration = 1;
+                }
+
+                $normalizedMachines[] = [
+                    'type' => $type,
+                    'capacity' => $capacity,
+                    'price' => $priceInEuros,
+                    'duration' => $duration,
+                    'equipmentReference' => isset($machine['machine_number']) ? (int) $machine['machine_number'] : null,
+                ];
+            }
+
+            return $this->json([
+                'serial' => trim($serial),
+                'machines' => $normalizedMachines,
+                'warnings' => $warnings,
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(): JsonResponse

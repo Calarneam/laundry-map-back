@@ -66,7 +66,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $laundromat->setAddedDate($now);
         $laundromat->setUpdatedAt($now);
         $laundromat->setStatus(LaundromatStatus::Validated);
-        $laundromat->setWiLineReference(12345);
+        $laundromat->setWiLineReference('12345');
 
         $laundromat->getServices()->add($serviceLavage);
         $laundromat->getServices()->add($serviceSechage);

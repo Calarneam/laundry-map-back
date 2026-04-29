@@ -73,15 +73,17 @@ class LaundromatHydrator
         $laundromat->setAddress($address);
         $laundromat->setEstablishmentName(trim($data['establishmentName']));
         $laundromat->setDescription(trim($data['description']));
-        $laundromat->setContactEmail(isset($data['contactEmail']) && is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
+        $laundromat->setContactEmail(isset($data['contactEmail']) && \is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
         $laundromat->setUpdatedAt($now);
 
         if ($laundromat->getAddedDate() === null) {
             $laundromat->setAddedDate($now);
         }
 
-        $wiLineClientCode = $data['wiLineClientCode'] ?? null;
-        $laundromat->setWiLineReference(is_numeric($wiLineClientCode) ? (int) $wiLineClientCode : null);
+        $wiLineClientCode = isset($data['wiLineClientCode']) && \is_string($data['wiLineClientCode'])
+            ? trim($data['wiLineClientCode'])
+            : '';
+        $laundromat->setWiLineReference($wiLineClientCode !== '' ? $wiLineClientCode : null);
 
         $this->syncServices($laundromat, $data['services'] ?? []);
 
@@ -160,12 +162,12 @@ class LaundromatHydrator
         $laundromatServices = $laundromat->getServices();
         $laundromatServices?->clear();
 
-        if (!is_array($services)) {
+        if (!\is_array($services)) {
             return;
         }
 
         foreach ($services as $serviceName) {
-            if (!is_string($serviceName) || trim($serviceName) === '') {
+            if (!\is_string($serviceName) || trim($serviceName) === '') {
                 continue;
             }
 
@@ -204,13 +206,13 @@ class LaundromatHydrator
             ];
         }
 
-        if (!is_array($openingHours) || $openingHours === []) {
+        if (!\is_array($openingHours) || $openingHours === []) {
             return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         foreach ($openingHours as $openingHour) {
             if (
-                !is_array($openingHour)
+                !\is_array($openingHour)
                 || !isset($openingHour['day'], $openingHour['startTime'], $openingHour['endTime'])
             ) {
                 return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
@@ -253,13 +255,13 @@ class LaundromatHydrator
             $equipments->clear();
         }
 
-        if (!is_array($machines)) {
+        if (!\is_array($machines)) {
             return null;
         }
 
         foreach ($machines as $machine) {
             if (
-                !is_array($machine)
+                !\is_array($machine)
                 || !isset($machine['type'], $machine['capacity'], $machine['price'], $machine['duration'])
             ) {
                 return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
