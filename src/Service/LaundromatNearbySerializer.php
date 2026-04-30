@@ -9,7 +9,7 @@ final class LaundromatNearbySerializer
     public const CACHE_TTL_SECONDS = 180;
 
     /**
-     * @param list<array{laundromat: Laundromat, distanceMeters: float}> $rows
+     * @param list<array{laundromat: Laundromat, distanceMeters: float, averageRating?: float|null}> $rows
      *
      * @return list<array<string, mixed>>
      */
@@ -17,7 +17,11 @@ final class LaundromatNearbySerializer
     {
         $out = [];
         foreach ($rows as $row) {
-            $out[] = $this->serializeOne($row['laundromat'], $row['distanceMeters']);
+            $out[] = $this->serializeOne(
+                $row['laundromat'],
+                $row['distanceMeters'],
+                $row['averageRating'] ?? null,
+            );
         }
 
         return $out;
@@ -26,7 +30,7 @@ final class LaundromatNearbySerializer
     /**
      * @return array<string, mixed>
      */
-    public function serializeOne(Laundromat $l, float $distanceMeters): array
+    public function serializeOne(Laundromat $l, float $distanceMeters, ?float $averageRating = null): array
     {
         $address = $l->getAddress();
         $logo = $l->getLogo();
@@ -48,6 +52,7 @@ final class LaundromatNearbySerializer
             'position' => $address?->getPosition(),
             'address' => $address?->getAddress(),
             'image' => $logo?->getLocation(),
+            'averageRating' => null !== $averageRating ? round($averageRating, 2) : null,
             'distanceMeters' => round($distanceMeters, 2),
         ];
     }
