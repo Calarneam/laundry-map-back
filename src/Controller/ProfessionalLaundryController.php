@@ -28,13 +28,15 @@ class ProfessionalLaundryController extends AbstractApiController
         private readonly WiLineApiService $wiLineApiService,
     ) {}
 
-    #[Route('/wiline/{serial}/machines', name: 'wiline_machines', methods: ['GET'])]
-    public function getWiLineMachines(string $serial): JsonResponse
+    #[Route('/wiline/{serial}', name: 'wiline_details', methods: ['GET'])]
+    public function getWiLineDetails(string $serial): JsonResponse
     {
         try {
             $this->getProfessional();
 
-            $machines = $this->wiLineApiService->getLaundryMachines(trim($serial));
+            $normalizedSerial = trim($serial);
+            $wiLineDetails = $this->wiLineApiService->getLaundryDetails($normalizedSerial);
+            $machines = $this->wiLineApiService->getLaundryMachines($normalizedSerial);
             $normalizedMachines = [];
             $warnings = [];
 
@@ -47,19 +49,21 @@ class ProfessionalLaundryController extends AbstractApiController
                     continue;
                 }
 
-                $categoryText = strtoupper((string) ($machine['category_text'] ?? ''));
-                $type = match ($categoryText) {
-                    'WASH' => 'washer',
-                    'DRY' => 'dryer',
-                    default => null,
-                };
+                $rawTypeName = trim((string) ($machine['type_name'] ?? ''));
+                $normalizedTypeName = mb_strtolower($rawTypeName);
+                $type = null;
+
+                if (str_starts_with($normalizedTypeName, 'machine')) {
+                    $type = 'washer';
+                } elseif (str_starts_with($normalizedTypeName, 'séchoir') || str_starts_with($normalizedTypeName, 'sechoir')) {
+                    $type = 'dryer';
+                }
 
                 if ($type === null) {
                     $warnings[] = 'api.messages.wiline_unsupported_machine_category';
                     continue;
                 }
 
-                $rawTypeName = (string) ($machine['type_name'] ?? '');
                 preg_match('/(\d+)\s*kg/i', $rawTypeName, $capacityMatch);
                 $capacity = isset($capacityMatch[1]) ? (int) $capacityMatch[1] : 8;
 
@@ -82,7 +86,14 @@ class ProfessionalLaundryController extends AbstractApiController
             }
 
             return $this->json([
-                'serial' => trim($serial),
+                'serial' => $normalizedSerial,
+                'details' => [
+                    'establishmentName' => (string) ($wiLineDetails['name'] ?? ''),
+                    'street' => (string) ($wiLineDetails['address'] ?? ''),
+                    'zipCode' => (string) ($wiLineDetails['postal_code'] ?? ''),
+                    'city' => (string) ($wiLineDetails['city'] ?? ''),
+                    'country' => (string) ($wiLineDetails['country'] ?? 'France'),
+                ],
                 'machines' => $normalizedMachines,
                 'warnings' => $warnings,
             ], Response::HTTP_OK);
