@@ -45,9 +45,9 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
         $professional1 = $this->getReference(ProfessionalFixtures::REF_PRO_1, Professional::class);
         $professional2 = $this->getReference(ProfessionalFixtures::REF_PRO_2, Professional::class);
 
-        $serviceLavage = $this->getReference(ServiceFixtures::REF_SERVICE_LAVAGE, Service::class);
-        $serviceSechage = $this->getReference(ServiceFixtures::REF_SERVICE_SECHAGE, Service::class);
-        $serviceRepassage = $this->getReference(ServiceFixtures::REF_SERVICE_REPASSAGE, Service::class);
+        $serviceLessive = $this->getReference(ServiceFixtures::REF_SERVICE_LESSIVE, Service::class);
+        $serviceParking = $this->getReference(ServiceFixtures::REF_SERVICE_PARKING, Service::class);
+        $serviceSecurite = $this->getReference(ServiceFixtures::REF_SERVICE_SECURITE, Service::class);
 
         $paymentCb = $this->getReference(PaymentMethodFixtures::REF_PAYMENT_CB, PaymentMethod::class);
         $paymentEspeces = $this->getReference(PaymentMethodFixtures::REF_PAYMENT_ESPECES, PaymentMethod::class);
@@ -84,7 +84,7 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
                 'email' => $faker->unique()->safeEmail(),
                 'wiLine' => 40_000 + $i,
                 'description' => $this->truncateDescription($faker->realText(380)),
-                'addRepassage' => $faker->boolean(35),
+                'addSecurite' => $faker->boolean(35),
                 'addCoins' => $faker->boolean(45),
                 'openStart' => sprintf('%02d:%02d', $faker->numberBetween(7, 9), $faker->randomElement([0, 30])),
                 'openEnd' => sprintf('%02d:%02d', $faker->numberBetween(20, 22), $faker->randomElement([0, 30])),
@@ -93,9 +93,9 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
             $this->persistSenlisSite(
                 $manager,
                 $professional,
-                $serviceLavage,
-                $serviceSechage,
-                $serviceRepassage,
+                $serviceLessive,
+                $serviceParking,
+                $serviceSecurite,
                 $paymentCb,
                 $paymentEspeces,
                 $paymentCoins,
@@ -128,7 +128,7 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
      *     email: string,
      *     wiLine: int,
      *     description: string,
-     *     addRepassage: bool,
+     *     addSecurite: bool,
      *     addCoins: bool,
      *     openStart: string,
      *     openEnd: string,
@@ -137,9 +137,9 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
     private function persistSenlisSite(
         ObjectManager $manager,
         Professional $professional,
-        Service $serviceLavage,
-        Service $serviceSechage,
-        Service $serviceRepassage,
+        Service $serviceLessive,
+        Service $serviceParking,
+        Service $serviceSecurite,
         PaymentMethod $paymentCb,
         PaymentMethod $paymentEspeces,
         PaymentMethod $paymentCoins,
@@ -177,10 +177,10 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
         $laundromat->setStatus(LaundromatStatus::Validated);
         $laundromat->setWiLineReference($site['wiLine']);
 
-        $laundromat->getServices()->add($serviceLavage);
-        $laundromat->getServices()->add($serviceSechage);
-        if ($site['addRepassage']) {
-            $laundromat->getServices()->add($serviceRepassage);
+        $laundromat->getServices()->add($serviceLessive);
+        $laundromat->getServices()->add($serviceParking);
+        if ($site['addSecurite']) {
+            $laundromat->getServices()->add($serviceSecurite);
         }
 
         $laundromat->getPaymentMethods()->add($paymentCb);

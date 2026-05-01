@@ -3,6 +3,7 @@
 namespace App\DataFixtures;
 
 use App\Entity\Service;
+use App\Repository\ServiceRepository;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;
 
@@ -17,35 +18,28 @@ class ServiceFixtures extends Fixture
 
     public function load(ObjectManager $manager): void
     {
-        $wifi = new Service();
-        $wifi->setName('Wi-Fi');
-        $manager->persist($wifi);
-        $this->addReference(self::REF_SERVICE_WIFI, $wifi);
+        /** @var ServiceRepository $serviceRepository */
+        $serviceRepository = $manager->getRepository(Service::class);
 
-        $parking = new Service();
-        $parking->setName('Parking');
-        $manager->persist($parking);
-        $this->addReference(self::REF_SERVICE_PARKING, $parking);
+        $services = [
+            self::REF_SERVICE_WIFI => 'Wi-Fi',
+            self::REF_SERVICE_PARKING => 'Parking',
+            self::REF_SERVICE_LESSIVE => 'Lessive',
+            self::REF_SERVICE_CB => 'CB',
+            self::REF_SERVICE_ACCES_PMR => 'Accès PMR',
+            self::REF_SERVICE_SECURITE => 'Sécurité',
+        ];
 
-        $lessive = new Service();
-        $lessive->setName('Lessive');
-        $manager->persist($lessive);
-        $this->addReference(self::REF_SERVICE_LESSIVE, $lessive);
+        foreach ($services as $reference => $name) {
+            $service = $serviceRepository->findOneBy(['name' => $name]);
+            if (!$service instanceof Service) {
+                $service = new Service();
+                $service->setName($name);
+                $manager->persist($service);
+            }
 
-        $cb = new Service();
-        $cb->setName('CB');
-        $manager->persist($cb);
-        $this->addReference(self::REF_SERVICE_CB, $cb);
-
-        $accesPmr = new Service();
-        $accesPmr->setName('Accès PMR');
-        $manager->persist($accesPmr);
-        $this->addReference(self::REF_SERVICE_ACCES_PMR, $accesPmr);
-
-        $securite = new Service();
-        $securite->setName('Sécurité');
-        $manager->persist($securite);
-        $this->addReference(self::REF_SERVICE_SECURITE, $securite);
+            $this->addReference($reference, $service);
+        }
 
         $manager->flush();
     }
