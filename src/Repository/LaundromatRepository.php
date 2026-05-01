@@ -5,6 +5,9 @@ namespace App\Repository;
 use App\Entity\Enum\GeolocationStatus;
 use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Laundromat;
+use App\Entity\LaundromatMedia;
+use App\Entity\Service;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\ParameterType;
@@ -152,5 +155,105 @@ class LaundromatRepository extends ServiceEntityRepository
         }
 
         return $out;
+    }
+
+    public function findFavorites(User $user, float $latitude, float $longitude): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $pointJson = json_encode([
+            'type' => 'Point',
+            'coordinates' => [$longitude, $latitude],
+        ], JSON_THROW_ON_ERROR);
+
+        $sqlLaundromats = '
+        SELECT 
+            l.id, 
+            l.establishment_name AS name,
+            l.wi_line_reference,
+            a.address,
+            ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distanceMeters
+        FROM laundromat l
+        INNER JOIN user_favorite_laundromat ufl ON ufl.laundromat_id = l.id
+        INNER JOIN address a ON a.id = l.address_id
+        WHERE ufl.user_id = :user_id
+        AND l.status = :status
+        AND l.deleted_at IS NULL
+        AND a.position IS NOT NULL
+        AND a.geolocation_status = :geo_status
+        ORDER BY distanceMeters ASC
+    ';
+
+        $laundromatRows = $conn->executeQuery($sqlLaundromats, [
+            'point' => $pointJson,
+            'user_id' => $user->getId(),
+            'status' => LaundromatStatus::Validated->value,
+            'geo_status' => GeolocationStatus::Geolocated->value,
+        ])->fetchAllAssociative();
+
+        if (empty($laundromatRows)) {
+            return [];
+        }
+
+        $out = [];
+        $laundromatIds = [];
+
+        foreach ($laundromatRows as $row) {
+            $id = $row['id'];
+            $laundromatIds[] = $id;
+
+            $out[$id] = [
+                'id' => $id,
+                'name' => $row['name'],
+                'medias' => [],
+                'address' => $row['address'],
+                'services' => [],
+                'machineCount' => 0,
+                'isWiLineReference' => $row['wi_line_reference'] !== null,
+                'distanceMeters' => round((float) $row['distanceMeters'], 2),
+            ];
+        }
+
+        $sqlMedias = '
+        SELECT lm.laundromat_id, m.id, m.location AS url, m.original_name AS name, lm.description
+        FROM laundromat_media lm
+        INNER JOIN media m ON m.id = lm.media_id
+        WHERE lm.laundromat_id IN (?)
+    ';
+        $mediaRows = $conn->executeQuery($sqlMedias, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($mediaRows as $row) {
+            $out[$row['laundromat_id']]['medias'][] = [
+                'id' => $row['id'],
+                'url' => $row['url'],
+                'name' => $row['name'],
+                'description' => $row['description'],
+            ];
+        }
+
+        $sqlServices = '
+        SELECT ls.laundromat_id, s.name
+        FROM laundromat_service ls
+        INNER JOIN service s ON s.id = ls.service_id
+        WHERE ls.laundromat_id IN (?)';
+
+        $serviceRows = $conn->executeQuery($sqlServices, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($serviceRows as $row) {
+            $out[$row['laundromat_id']]['services'][] = $row['name'];
+        }
+
+        $sqlEquipments = '
+        SELECT laundromat_id, type, COUNT(id) as count
+        FROM laundromat_equipment
+        WHERE laundromat_id IN (?)
+        GROUP BY laundromat_id, type';
+
+        $equipmentRows = $conn->executeQuery($sqlEquipments, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($equipmentRows as $row) {
+            $laundromatId = $row['laundromat_id'];
+            $type = strtolower($row['type']);
+            $out[$laundromatId]['equipments'][$type] = (int) $row['count'];
+        }
+
+        return array_values($out);
     }
 }
