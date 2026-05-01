@@ -30,18 +30,21 @@ class UserController extends AbstractApiController
 
         $latitude = $request->query->get('latitude');
         $longitude = $request->query->get('longitude');
+        $search = $request->query->get('search');
+        $searchValue = \is_string($search) && trim($search) !== '' ? trim($search) : null;
+
         $hasCoordinates = $latitude !== null && $latitude !== ''
             && $longitude !== null && $longitude !== '';
 
         if (!$hasCoordinates) {
             return $this->json(
-                $this->laundromatRepository->findFavoritesWithoutCoordinates($user),
+                $this->laundromatRepository->findFavoritesWithoutCoordinates($user, $searchValue),
                 Response::HTTP_OK,
             );
         }
 
         return $this->json(
-            $this->laundromatRepository->findFavorites($user, (float) $latitude, (float) $longitude),
+            $this->laundromatRepository->findFavorites($user, (float) $latitude, (float) $longitude, $searchValue),
             Response::HTTP_OK,
         );
     }

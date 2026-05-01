@@ -160,7 +160,7 @@ class LaundromatRepository extends ServiceEntityRepository
      * Favoris sans calcul de distance : même forme JSON que {@see findFavorites} (sans distanceMeters).
      * Inclut toutes les laveries favorites validées, même si l’adresse n’est pas géolocalisée.
      */
-    public function findFavoritesWithoutCoordinates(User $user): array
+    public function findFavoritesWithoutCoordinates(User $user, ?string $search = null): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
@@ -173,13 +173,21 @@ class LaundromatRepository extends ServiceEntityRepository
         INNER JOIN user_favorite_laundromat ufl ON ufl.laundromat_id = l.id
         WHERE ufl.user_id = :user_id
         AND l.status = :status
-        AND l.deleted_at IS NULL
-        ORDER BY l.establishment_name ASC';
+        AND l.deleted_at IS NULL';
 
-        $laundromatRows = $conn->executeQuery($sqlLaundromats, [
+        $params = [
             'user_id' => $user->getId(),
             'status' => LaundromatStatus::Validated->value,
-        ])->fetchAllAssociative();
+        ];
+
+        if ($search !== null && $search !== '') {
+            $sqlLaundromats .= ' AND l.establishment_name LIKE :search';
+            $params['search'] = '%' . $this->escapeLikePattern($search) . '%';
+        }
+
+        $sqlLaundromats .= ' ORDER BY l.establishment_name ASC';
+
+        $laundromatRows = $conn->executeQuery($sqlLaundromats, $params)->fetchAllAssociative();
 
         if ($laundromatRows === []) {
             return [];
@@ -206,7 +214,7 @@ class LaundromatRepository extends ServiceEntityRepository
         return array_values($out);
     }
 
-    public function findFavorites(User $user, float $latitude, float $longitude): array
+    public function findFavorites(User $user, float $latitude, float $longitude, ?string $search = null): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
@@ -228,15 +236,23 @@ class LaundromatRepository extends ServiceEntityRepository
         AND l.status = :status
         AND l.deleted_at IS NULL
         AND a.position IS NOT NULL
-        AND a.geolocation_status = :geo_status
-        ORDER BY distanceMeters ASC';
+        AND a.geolocation_status = :geo_status';
 
-        $laundromatRows = $conn->executeQuery($sqlLaundromats, [
+        $params = [
             'point' => $pointJson,
             'user_id' => $user->getId(),
             'status' => LaundromatStatus::Validated->value,
             'geo_status' => GeolocationStatus::Geolocated->value,
-        ])->fetchAllAssociative();
+        ];
+
+        if ($search !== null && $search !== '') {
+            $sqlLaundromats .= ' AND l.establishment_name LIKE :search';
+            $params['search'] = '%' . $this->escapeLikePattern($search) . '%';
+        }
+
+        $sqlLaundromats .= ' ORDER BY distanceMeters ASC';
+
+        $laundromatRows = $conn->executeQuery($sqlLaundromats, $params)->fetchAllAssociative();
 
         if ($laundromatRows === []) {
             return [];
@@ -262,6 +278,15 @@ class LaundromatRepository extends ServiceEntityRepository
         $this->appendFavoriteAggregates($conn, $out, $laundromatIds);
 
         return array_values($out);
+    }
+
+    /**
+     * Échappe les caractères spéciaux LIKE (%, _, \) pour éviter qu'un utilisateur
+     * tape un wildcard et déclenche une recherche non voulue.
+     */
+    private function escapeLikePattern(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
     }
 
     /**
