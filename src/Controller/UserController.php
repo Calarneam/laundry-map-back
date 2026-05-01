@@ -30,9 +30,14 @@ class UserController extends AbstractApiController
 
         $latitude = $request->query->get('latitude');
         $longitude = $request->query->get('longitude');
+        $hasCoordinates = $latitude !== null && $latitude !== ''
+            && $longitude !== null && $longitude !== '';
 
-        if (!$latitude || !$longitude) {
-            return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
+        if (!$hasCoordinates) {
+            return $this->json(
+                $this->laundromatRepository->findFavoritesWithoutCoordinates($user),
+                Response::HTTP_OK,
+            );
         }
 
         return $this->json(
@@ -41,27 +46,22 @@ class UserController extends AbstractApiController
         );
     }
 
-    #[Route('/favorites', name: 'add_favorite', methods: ['POST'])]
-    public function addFavorite(Request $request): JsonResponse
+    #[Route('/favorites/{laundromatId}', name: 'remove_favorite', methods: ['DELETE'])]
+    public function removeFavorite(int $laundromatId): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
         }
 
-        $data = json_decode($request->getContent(), true);
-        if (!isset($data['laundromatId'])) {
-            return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
-        }
-
-        $laundromat = $this->entityManager->getRepository(Laundromat::class)->find($data['laundromatId']);
+        $laundromat = $this->entityManager->getRepository(Laundromat::class)->find($laundromatId);
         if (!$laundromat) {
             return $this->json(['error' => 'api.messages.laundromat_not_found'], Response::HTTP_NOT_FOUND);
         }
 
-        $user->getFavoriteLaundromats()->add($laundromat);
+        $user->getFavoriteLaundromats()->removeElement($laundromat);
         $this->entityManager->flush();
 
-        return $this->json(['message' => 'api.messages.favorite_added'], Response::HTTP_OK);
+        return $this->json(['message' => 'api.messages.favorite_removed'], Response::HTTP_OK);
     }
 }
