@@ -10,6 +10,7 @@ use App\Entity\Professional;
 use App\Entity\User;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatHydrator;
+use App\Service\WiLineApiService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,7 +25,82 @@ class ProfessionalLaundryController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatHydrator $laundromatHydrator,
+        private readonly WiLineApiService $wiLineApiService,
     ) {}
+
+    #[Route('/wiline/{serial}', name: 'wiline_details', methods: ['GET'])]
+    public function getWiLineDetails(string $serial): JsonResponse
+    {
+        try {
+            $this->getProfessional();
+
+            $normalizedSerial = trim($serial);
+            $wiLineDetails = $this->wiLineApiService->getLaundryDetails($normalizedSerial);
+            $machines = $this->wiLineApiService->getLaundryMachines($normalizedSerial);
+            $normalizedMachines = [];
+            $warnings = [];
+
+            foreach ($machines as $machine) {
+                if (!is_array($machine)) {
+                    continue;
+                }
+
+                if (($machine['out_of_order'] ?? false) === true) {
+                    continue;
+                }
+
+                $rawTypeName = trim((string) ($machine['type_name'] ?? ''));
+                $normalizedTypeName = mb_strtolower($rawTypeName);
+                $type = null;
+
+                if (str_starts_with($normalizedTypeName, 'machine')) {
+                    $type = 'washer';
+                } elseif (str_starts_with($normalizedTypeName, 'séchoir') || str_starts_with($normalizedTypeName, 'sechoir')) {
+                    $type = 'dryer';
+                }
+
+                if ($type === null) {
+                    $warnings[] = 'api.messages.wiline_unsupported_machine_category';
+                    continue;
+                }
+
+                preg_match('/(\d+)\s*kg/i', $rawTypeName, $capacityMatch);
+                $capacity = isset($capacityMatch[1]) ? (int) $capacityMatch[1] : 8;
+
+                $rawPrice = (float) ($machine['price'] ?? 0);
+                $priceInEuros = $rawPrice > 0 ? round($rawPrice / 100, 2) : 0.0;
+
+                $rawDuration = (int) ($machine['duration'] ?? 0);
+                $duration = $rawDuration > 120 ? (int) round($rawDuration / 60) : $rawDuration;
+                if ($duration <= 0) {
+                    $duration = 1;
+                }
+
+                $normalizedMachines[] = [
+                    'type' => $type,
+                    'capacity' => $capacity,
+                    'price' => $priceInEuros,
+                    'duration' => $duration,
+                    'equipmentReference' => isset($machine['machine_number']) ? (int) $machine['machine_number'] : null,
+                ];
+            }
+
+            return $this->json([
+                'serial' => $normalizedSerial,
+                'details' => [
+                    'establishmentName' => (string) ($wiLineDetails['name'] ?? ''),
+                    'street' => (string) ($wiLineDetails['address'] ?? ''),
+                    'zipCode' => (string) ($wiLineDetails['postal_code'] ?? ''),
+                    'city' => (string) ($wiLineDetails['city'] ?? ''),
+                    'country' => (string) ($wiLineDetails['country'] ?? 'France'),
+                ],
+                'machines' => $normalizedMachines,
+                'warnings' => $warnings,
+            ], Response::HTTP_OK);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 
     #[Route('', name: 'list', methods: ['GET'])]
     public function list(): JsonResponse

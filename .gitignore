@@ -73,3 +73,5 @@
 /Dockerfile
 /docker-compose.yml
 ###< docker ###
+
+/public/uploads/

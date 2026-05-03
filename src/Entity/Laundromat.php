@@ -23,8 +23,8 @@ class Laundromat
     #[Assert\NotNull]
     private ?Professional $professional = null;
 
-    #[ORM\Column(nullable: true)]
-    private ?int $wiLineReference = null;
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $wiLineReference = null;
 
     #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
@@ -130,12 +130,12 @@ class Laundromat
         return $this;
     }
 
-    public function getWiLineReference(): ?int
+    public function getWiLineReference(): ?string
     {
         return $this->wiLineReference;
     }
 
-    public function setWiLineReference(?int $wiLineReference): static
+    public function setWiLineReference(?string $wiLineReference): static
     {
         $this->wiLineReference = $wiLineReference;
 

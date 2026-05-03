@@ -73,17 +73,22 @@ class LaundromatHydrator
         $laundromat->setAddress($address);
         $laundromat->setEstablishmentName(trim($data['establishmentName']));
         $laundromat->setDescription(trim($data['description']));
-        $laundromat->setContactEmail(isset($data['contactEmail']) && is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
+        $laundromat->setContactEmail(isset($data['contactEmail']) && \is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
         $laundromat->setUpdatedAt($now);
 
         if ($laundromat->getAddedDate() === null) {
             $laundromat->setAddedDate($now);
         }
 
-        $wiLineClientCode = $data['wiLineClientCode'] ?? null;
-        $laundromat->setWiLineReference(is_numeric($wiLineClientCode) ? (int) $wiLineClientCode : null);
+        $wiLineClientCode = isset($data['wiLineClientCode']) && \is_string($data['wiLineClientCode'])
+            ? trim($data['wiLineClientCode'])
+            : '';
+        $laundromat->setWiLineReference($wiLineClientCode !== '' ? $wiLineClientCode : null);
 
-        $this->syncServices($laundromat, $data['services'] ?? []);
+        $servicesError = $this->syncServices($laundromat, $data['services'] ?? []);
+        if ($servicesError instanceof JsonResponse) {
+            return $servicesError;
+        }
 
         $closuresError = $this->syncClosures($laundromat, $data['openingHours'] ?? [], (bool) ($data['isOpenTwentyFourSeven'] ?? false), $now);
         if ($closuresError instanceof JsonResponse) {
@@ -155,17 +160,17 @@ class LaundromatHydrator
         return null;
     }
 
-    private function syncServices(Laundromat $laundromat, mixed $services): void
+    private function syncServices(Laundromat $laundromat, mixed $services): ?JsonResponse
     {
         $laundromatServices = $laundromat->getServices();
         $laundromatServices?->clear();
 
-        if (!is_array($services)) {
-            return;
+        if (!\is_array($services)) {
+            return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         foreach ($services as $serviceName) {
-            if (!is_string($serviceName) || trim($serviceName) === '') {
+            if (!\is_string($serviceName) || trim($serviceName) === '') {
                 continue;
             }
 
@@ -173,13 +178,13 @@ class LaundromatHydrator
             $service = $this->serviceRepository->findOneBy(['name' => $normalizedServiceName]);
 
             if (!$service instanceof Service) {
-                $service = new Service();
-                $service->setName($normalizedServiceName);
-                $this->entityManager->persist($service);
+                return $this->jsonError(self::MESSAGE_INVALID_LAUNDROMAT, Response::HTTP_BAD_REQUEST);
             }
 
             $laundromatServices?->add($service);
         }
+
+        return null;
     }
 
     private function syncClosures(Laundromat $laundromat, mixed $openingHours, bool $isOpenTwentyFourSeven, \DateTimeImmutable $now): ?JsonResponse
@@ -204,13 +209,13 @@ class LaundromatHydrator
             ];
         }
 
-        if (!is_array($openingHours) || $openingHours === []) {
+        if (!\is_array($openingHours) || $openingHours === []) {
             return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
         foreach ($openingHours as $openingHour) {
             if (
-                !is_array($openingHour)
+                !\is_array($openingHour)
                 || !isset($openingHour['day'], $openingHour['startTime'], $openingHour['endTime'])
             ) {
                 return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
@@ -253,13 +258,13 @@ class LaundromatHydrator
             $equipments->clear();
         }
 
-        if (!is_array($machines)) {
+        if (!\is_array($machines)) {
             return null;
         }
 
         foreach ($machines as $machine) {
             if (
-                !is_array($machine)
+                !\is_array($machine)
                 || !isset($machine['type'], $machine['capacity'], $machine['price'], $machine['duration'])
             ) {
                 return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
