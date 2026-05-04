@@ -16,7 +16,6 @@ use Symfony\Component\Routing\Attribute\Route;
 class UserController extends AbstractApiController
 {
     public function __construct(
-        private readonly EntityManagerInterface $entityManager,
         private readonly LaundromatRepository $laundromatRepository,
     ) {}
 
@@ -50,20 +49,20 @@ class UserController extends AbstractApiController
     }
 
     #[Route('/favorites/{laundromatId}', name: 'remove_favorite', methods: ['DELETE'])]
-    public function removeFavorite(int $laundromatId): JsonResponse
+    public function removeFavorite(int $laundromatId, EntityManagerInterface $entityManager): JsonResponse
     {
         $user = $this->getUser();
         if (!$user instanceof User) {
             return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
         }
 
-        $laundromat = $this->entityManager->getRepository(Laundromat::class)->find($laundromatId);
+        $laundromat = $this->laundromatRepository->find($laundromatId);
         if (!$laundromat) {
             return $this->json(['error' => 'api.messages.laundromat_not_found'], Response::HTTP_NOT_FOUND);
         }
 
         $user->getFavoriteLaundromats()->removeElement($laundromat);
-        $this->entityManager->flush();
+        $entityManager->flush();
 
         return $this->json(['message' => 'api.messages.favorite_removed'], Response::HTTP_OK);
     }
