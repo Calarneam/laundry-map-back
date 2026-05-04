@@ -40,6 +40,16 @@ final class LaundromatNearbySerializer
             ];
         }
 
+        $services = [];
+        foreach ($l->getServices() ?? [] as $service) {
+            $services[] = $service->getName();
+        }
+
+        $paymentMethods = [];
+        foreach ($l->getPaymentMethods() ?? [] as $pm) {
+            $paymentMethods[] = $pm->getName();
+        }
+
         return [
             'id' => $l->getId(),
             'name' => $l->getEstablishmentName(),
@@ -49,6 +59,8 @@ final class LaundromatNearbySerializer
             'address' => $address?->getAddress(),
             'image' => $logo?->getLocation(),
             'distanceMeters' => round($distanceMeters, 2),
+            'services' => $services,
+            'paymentMethods' => $paymentMethods,
         ];
     }
 }
