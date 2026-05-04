@@ -5,8 +5,10 @@ namespace App\Repository;
 use App\Entity\Enum\GeolocationStatus;
 use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Laundromat;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
+use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
 use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
@@ -152,5 +154,185 @@ class LaundromatRepository extends ServiceEntityRepository
         }
 
         return $out;
+    }
+
+    /**
+     * Favoris sans calcul de distance : même forme JSON que {@see findFavorites} (sans distanceMeters).
+     * Inclut toutes les laveries favorites validées, même si l’adresse n’est pas géolocalisée.
+     */
+    public function findFavoritesWithoutCoordinates(User $user, ?string $search = null): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $sqlLaundromats = '
+        SELECT
+            l.id,
+            l.establishment_name AS name,
+            l.wi_line_reference
+        FROM laundromat l
+        INNER JOIN user_favorite_laundromat ufl ON ufl.laundromat_id = l.id
+        WHERE ufl.user_id = :user_id
+        AND l.status = :status
+        AND l.deleted_at IS NULL';
+
+        $params = [
+            'user_id' => $user->getId(),
+            'status' => LaundromatStatus::Validated->value,
+        ];
+
+        if ($search !== null && $search !== '') {
+            $sqlLaundromats .= ' AND l.establishment_name LIKE :search';
+            $params['search'] = '%' . $this->escapeLikePattern($search) . '%';
+        }
+
+        $sqlLaundromats .= ' ORDER BY l.establishment_name ASC';
+
+        $laundromatRows = $conn->executeQuery($sqlLaundromats, $params)->fetchAllAssociative();
+
+        if ($laundromatRows === []) {
+            return [];
+        }
+
+        $out = [];
+        $laundromatIds = [];
+
+        foreach ($laundromatRows as $row) {
+            $id = $row['id'];
+            $laundromatIds[] = $id;
+
+            $out[$id] = [
+                'id' => $id,
+                'name' => $row['name'],
+                'medias' => [],
+                'services' => [],
+                'isWiLineReference' => $row['wi_line_reference'] !== null,
+            ];
+        }
+
+        $this->appendFavoriteAggregates($conn, $out, $laundromatIds);
+
+        return array_values($out);
+    }
+
+    public function findFavorites(User $user, float $latitude, float $longitude, ?string $search = null): array
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $pointJson = json_encode([
+            'type' => 'Point',
+            'coordinates' => [$longitude, $latitude],
+        ], JSON_THROW_ON_ERROR);
+
+        $sqlLaundromats = '
+        SELECT 
+            l.id, 
+            l.establishment_name AS name,
+            l.wi_line_reference,
+            ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distanceMeters
+        FROM laundromat l
+        INNER JOIN user_favorite_laundromat ufl ON ufl.laundromat_id = l.id
+        INNER JOIN address a ON a.id = l.address_id
+        WHERE ufl.user_id = :user_id
+        AND l.status = :status
+        AND l.deleted_at IS NULL
+        AND a.position IS NOT NULL
+        AND a.geolocation_status = :geo_status';
+
+        $params = [
+            'point' => $pointJson,
+            'user_id' => $user->getId(),
+            'status' => LaundromatStatus::Validated->value,
+            'geo_status' => GeolocationStatus::Geolocated->value,
+        ];
+
+        if ($search !== null && $search !== '') {
+            $sqlLaundromats .= ' AND l.establishment_name LIKE :search';
+            $params['search'] = '%' . $this->escapeLikePattern($search) . '%';
+        }
+
+        $sqlLaundromats .= ' ORDER BY distanceMeters ASC';
+
+        $laundromatRows = $conn->executeQuery($sqlLaundromats, $params)->fetchAllAssociative();
+
+        if ($laundromatRows === []) {
+            return [];
+        }
+
+        $out = [];
+        $laundromatIds = [];
+
+        foreach ($laundromatRows as $row) {
+            $id = $row['id'];
+            $laundromatIds[] = $id;
+
+            $out[$id] = [
+                'id' => $id,
+                'name' => $row['name'],
+                'medias' => [],
+                'services' => [],
+                'isWiLineReference' => $row['wi_line_reference'] !== null,
+                'distanceMeters' => round((float) $row['distanceMeters'], 2),
+            ];
+        }
+
+        $this->appendFavoriteAggregates($conn, $out, $laundromatIds);
+
+        return array_values($out);
+    }
+
+    /**
+     * Échappe les caractères spéciaux LIKE (%, _, \) pour éviter qu'un utilisateur
+     * tape un wildcard et déclenche une recherche non voulue.
+     */
+    private function escapeLikePattern(string $value): string
+    {
+        return str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $value);
+    }
+
+    /**
+     * @param array<int|string, array<string, mixed>> $out
+     * @param list<int|string>                          $laundromatIds
+     */
+    private function appendFavoriteAggregates(Connection $conn, array &$out, array $laundromatIds): void
+    {
+        $sqlMedias = '
+        SELECT lm.laundromat_id, m.id, m.location AS url, m.original_name AS name, lm.description
+        FROM laundromat_media lm
+        INNER JOIN media m ON m.id = lm.media_id
+        WHERE lm.laundromat_id IN (?)';
+
+        $mediaRows = $conn->executeQuery($sqlMedias, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($mediaRows as $row) {
+            $out[$row['laundromat_id']]['medias'][] = [
+                'id' => $row['id'],
+                'url' => $row['url'],
+                'name' => $row['name'],
+                'description' => $row['description'],
+            ];
+        }
+
+        $sqlServices = '
+        SELECT ls.laundromat_id, s.name
+        FROM laundromat_service ls
+        INNER JOIN service s ON s.id = ls.service_id
+        WHERE ls.laundromat_id IN (?)';
+
+        $serviceRows = $conn->executeQuery($sqlServices, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($serviceRows as $row) {
+            $out[$row['laundromat_id']]['services'][] = $row['name'];
+        }
+
+        $sqlEquipments = '
+        SELECT laundromat_id, type, COUNT(id) as count
+        FROM laundromat_equipment
+        WHERE laundromat_id IN (?)
+        GROUP BY laundromat_id, type';
+
+        $equipmentRows = $conn->executeQuery($sqlEquipments, [$laundromatIds], [ArrayParameterType::INTEGER])->fetchAllAssociative();
+        foreach ($equipmentRows as $row) {
+            $laundromatId = $row['laundromat_id'];
+            $type = strtolower((string) $row['type']);
+            $out[$laundromatId]['equipments'][$type] = (int) $row['count'];
+        }
     }
 }
