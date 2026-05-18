@@ -30,9 +30,12 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
     public function load(ObjectManager $manager): void
     {
         $professional = $this->getReference(ProfessionalFixtures::REF_PRO_1, Professional::class);
-        $serviceLavage = $this->getReference(ServiceFixtures::REF_SERVICE_LAVAGE, Service::class);
-        $serviceSechage = $this->getReference(ServiceFixtures::REF_SERVICE_SECHAGE, Service::class);
-        $serviceRepassage = $this->getReference(ServiceFixtures::REF_SERVICE_REPASSAGE, Service::class);
+        $serviceWifi = $this->getReference(ServiceFixtures::REF_SERVICE_WIFI, Service::class);
+        $serviceParking = $this->getReference(ServiceFixtures::REF_SERVICE_PARKING, Service::class);
+        $serviceLessive = $this->getReference(ServiceFixtures::REF_SERVICE_LESSIVE, Service::class);
+        $serviceCb = $this->getReference(ServiceFixtures::REF_SERVICE_CB, Service::class);
+        $serviceAccesPmr = $this->getReference(ServiceFixtures::REF_SERVICE_ACCES_PMR, Service::class);
+        $serviceSecurite = $this->getReference(ServiceFixtures::REF_SERVICE_SECURITE, Service::class);
         $paymentCb = $this->getReference(PaymentMethodFixtures::REF_PAYMENT_CB, PaymentMethod::class);
         $paymentEspeces = $this->getReference(PaymentMethodFixtures::REF_PAYMENT_ESPECES, PaymentMethod::class);
         $paymentCoins = $this->getReference(PaymentMethodFixtures::REF_PAYMENT_COINS, PaymentMethod::class);
@@ -43,8 +46,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $address->setZipCode(75013);
         $address->setCity('Paris');
         $address->setCountry('FR');
-        $address->setLattitude('48.8323');
-        $address->setLongitude('2.3772');
+        $address->setPosition(Address::point(2.3772, 48.8323));
         $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 
@@ -67,11 +69,14 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $laundromat->setAddedDate($now);
         $laundromat->setUpdatedAt($now);
         $laundromat->setStatus(LaundromatStatus::Validated);
-        $laundromat->setWiLineReference(12345);
+        $laundromat->setWiLineReference('12345');
 
-        $laundromat->getServices()->add($serviceLavage);
-        $laundromat->getServices()->add($serviceSechage);
-        $laundromat->getServices()->add($serviceRepassage);
+        $laundromat->getServices()->add($serviceWifi);
+        $laundromat->getServices()->add($serviceParking);
+        $laundromat->getServices()->add($serviceLessive);
+        $laundromat->getServices()->add($serviceCb);
+        $laundromat->getServices()->add($serviceAccesPmr);
+        $laundromat->getServices()->add($serviceSecurite);
         $laundromat->getPaymentMethods()->add($paymentCb);
         $laundromat->getPaymentMethods()->add($paymentEspeces);
         $laundromat->getPaymentMethods()->add($paymentCoins);

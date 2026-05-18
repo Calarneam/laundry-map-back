@@ -23,8 +23,8 @@ class Laundromat
     #[Assert\NotNull]
     private ?Professional $professional = null;
 
-    #[ORM\Column(nullable: true)]
-    private ?int $wiLineReference = null;
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $wiLineReference = null;
 
     #[ORM\OneToOne(targetEntity: Address::class, cascade: ['persist', 'remove'])]
     #[ORM\JoinColumn(nullable: false)]
@@ -50,7 +50,7 @@ class Laundromat
     private ?string $contactEmail = null;
 
     #[ORM\Column(type: Types::TEXT)]
-    #[Assert\Length(max: 255)]
+    #[Assert\Length(max: 570)]
     #[Assert\NotBlank]
     private ?string $description = null;
 
@@ -99,6 +99,9 @@ class Laundromat
     #[Assert\NotNull]
     private Collection $equipments;
 
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $pendingChanges = null;
+
     public function __construct()
     {
         $this->medias = new ArrayCollection();
@@ -127,12 +130,12 @@ class Laundromat
         return $this;
     }
 
-    public function getWiLineReference(): ?int
+    public function getWiLineReference(): ?string
     {
         return $this->wiLineReference;
     }
 
-    public function setWiLineReference(?int $wiLineReference): static
+    public function setWiLineReference(?string $wiLineReference): static
     {
         $this->wiLineReference = $wiLineReference;
 
@@ -159,6 +162,18 @@ class Laundromat
     public function setLogo(Media $logo): static
     {
         $this->logo = $logo;
+
+        return $this;
+    }
+
+    public function getStatus(): ?LaundromatStatus
+    {
+        return $this->status;
+    }
+
+    public function setStatus(LaundromatStatus $status): static
+    {
+        $this->status = $status;
 
         return $this;
     }
@@ -319,15 +334,20 @@ class Laundromat
         return $this;
     }
 
-    public function getStatus(): ?LaundromatStatus
+    public function getPendingChanges(): ?array
     {
-        return $this->status;
+        return $this->pendingChanges;
     }
 
-    public function setStatus(LaundromatStatus $status): static
+    public function setPendingChanges(?array $pendingChanges): static
     {
-        $this->status = $status;
+        $this->pendingChanges = $pendingChanges;
 
         return $this;
+    }
+
+    public function hasPendingChanges(): bool
+    {
+        return $this->pendingChanges !== null && $this->pendingChanges !== [];
     }
 }
