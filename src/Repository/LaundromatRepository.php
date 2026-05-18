@@ -10,7 +10,6 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -62,19 +61,13 @@ class LaundromatRepository extends ServiceEntityRepository
         $radiusMeters = max(1, $radiusMeters);
         $limit = max(1, $limit);
 
-        $entityManager = $this->getEntityManager();
-        $rsm = new ResultSetMappingBuilder($entityManager);
-        $rsm->addRootEntityFromClassMetadata(Laundromat::class, 'l');
-        $rsm->addScalarResult('distance_meters', 'distanceMeters', 'float');
-
         $pointJson = json_encode([
             'type' => 'Point',
             'coordinates' => [$longitude, $latitude],
         ], JSON_THROW_ON_ERROR);
 
-        $sql = 'SELECT '
-            . $rsm->generateSelectClause(['l' => 'l'])
-            . ', ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
+        $sql = 'SELECT l.id, '
+            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
             . 'FROM laundromat l '
             . 'INNER JOIN address a ON a.id = l.address_id '
             . 'WHERE l.status = :status '
@@ -130,26 +123,78 @@ class LaundromatRepository extends ServiceEntityRepository
             WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
         ) ');
 
-        $sql .= 'ORDER BY distance_meters ASC LIMIT ' . $limit;
+        $sql .= 'ORDER BY distance_meters ASC LIMIT '.$limit;
 
-        $query = $entityManager->createNativeQuery($sql, $rsm);
-        $query->setParameters($params);
+        $distanceRows = $this->getEntityManager()->getConnection()->executeQuery($sql, $params, $types)->fetchAllAssociative();
 
-        foreach ($types as $name => $type) {
-            $query->setParameter($name, $params[$name], $type);
+        if ($distanceRows === []) {
+            return [];
         }
 
-        $rows = $query->getResult();
-        $out = [];
+        $ids = array_values(array_unique(array_map(static fn (array $r): int => (int) ($r['id']), $distanceRows)));
+        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
 
-        foreach ($rows as $row) {
-            $laundromat = $row[0] ?? null;
-            
-            if ($laundromat instanceof Laundromat) {
-                $out[] = [
-                    'laundromat' => $laundromat,
-                    'distanceMeters' => (float) ($row['distanceMeters'] ?? 0.0),
-                ];
+        if ($ids === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('l');
+        $qb->leftJoin('l.address', 'a')->addSelect('a')
+            ->leftJoin('l.logo', 'logo')->addSelect('logo')
+            ->leftJoin('l.closures', 'c')->addSelect('c')
+            ->leftJoin('l.equipments', 'e')->addSelect('e')
+            ->where($qb->expr()->in('l.id', ':ids'))
+            ->setParameter('ids', $ids, ArrayParameterType::INTEGER);
+
+        $loaded = $qb->getQuery()->getResult();
+        $byId = [];
+        foreach ($loaded as $entity) {
+            if ($entity instanceof Laundromat && null !== $entity->getId()) {
+                $byId[$entity->getId()] = $entity;
+            }
+        }
+
+        $out = [];
+        foreach ($distanceRows as $r) {
+            $id = (int) ($r['id']);
+            $distanceMeters = $r['distance_meters'];
+            if (!isset($byId[$id])) {
+                continue;
+            }
+
+            $out[] = [
+                'laundromat' => $byId[$id],
+                'distanceMeters' => (float) $distanceMeters,
+                'averageRating' => null,
+            ];
+        }
+
+        if ($out !== []) {
+            $aggSql = 'SELECT lr.laundromat_id AS id, ROUND(AVG(lr.rating), 2) AS average_rating '
+                . 'FROM laundromat_rating lr '
+                . 'WHERE lr.laundromat_id IN (:ids) '
+                . 'AND lr.rating IS NOT NULL AND lr.rating BETWEEN 0 AND 5 '
+                . 'GROUP BY lr.laundromat_id';
+            $aggRows = $this->getEntityManager()->getConnection()->executeQuery(
+                $aggSql,
+                ['ids' => $ids],
+                ['ids' => ArrayParameterType::INTEGER],
+            )->fetchAllAssociative();
+
+            $ratingById = [];
+            foreach ($aggRows as $row) {
+                $rid = (int) ($row['id']);
+                $avg = $row['average_rating'] ?? null;
+                if ($rid > 0 && $avg !== null) {
+                    $ratingById[$rid] = (float) $avg;
+                }
+            }
+
+            foreach ($out as $i => $item) {
+                $lid = $item['laundromat']->getId();
+                if (null !== $lid && isset($ratingById[$lid])) {
+                    $out[$i]['averageRating'] = $ratingById[$lid];
+                }
             }
         }
 
