@@ -71,9 +71,7 @@ class LaundromatHydrator
         $longitude = isset($data['longitude']) && is_numeric($data['longitude']) ? (float) $data['longitude'] : null;
 
         if (
-            $latitude !== null
-            && $longitude !== null
-            && $latitude >= -90.0
+            $latitude >= -90.0
             && $latitude <= 90.0
             && $longitude >= -180.0
             && $longitude <= 180.0
