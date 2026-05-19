@@ -73,22 +73,17 @@ class LaundromatController extends AbstractApiController
         }
 
         $data = $this->serializeLaundromat($laundromat);
+        $data['isWiLineSynced'] = false;
 
         $wiLineReference = $laundromat->getWiLineReference();
         if ($wiLineReference !== null && $wiLineReference !== '') {
             try {
                 $wiLineDetails = $this->wiLineApiService->getLaundryDetails($wiLineReference);
                 if ($wiLineDetails !== []) {
-                    $data = $this->mergeWiLineDetails($data, $wiLineDetails);
-                    $data['isWiLineSynced'] = true;
-                } else {
-                    $data['isWiLineSynced'] = false;
+                    $this->mergeWiLineDetails($data, $wiLineDetails);
                 }
             } catch (\Throwable) {
-                $data['isWiLineSynced'] = false;
             }
-        } else {
-            $data['isWiLineSynced'] = false;
         }
 
         return $this->json($data, Response::HTTP_OK);
@@ -156,7 +151,7 @@ class LaundromatController extends AbstractApiController
      * @param array<string, mixed> $wi
      * @return array<string, mixed>
      */
-    private function mergeWiLineDetails(array $data, array $wi): array
+    private function mergeWiLineDetails(array &$data, array $wi): void
     {
         if (!empty($wi['name'])) {
             $data['establishmentName'] = $wi['name'];
@@ -245,6 +240,6 @@ class LaundromatController extends AbstractApiController
             $data['equipments'] = $equipments;
         }
 
-        return $data;
+        $data['isWiLineSynced'] = true;
     }
 }
