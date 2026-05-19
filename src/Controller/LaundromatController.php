@@ -42,7 +42,7 @@ class LaundromatController extends AbstractApiController
 
         $cacheKey = 'laundromat_bbox_'.hash('sha256', (string) $request->getQueryString());
 
-        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($minLat, $maxLat, $minLng, $maxLng, $limit, $filters): array {
+        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($swLat, $swLng, $neLat, $neLng, $limit, $filters): array {
             $item->expiresAfter(LaundromatNearbySerializer::CACHE_TTL_SECONDS);
             $rows = $this->laundromatRepository->findInBbox(
                 (float) $swLat,
