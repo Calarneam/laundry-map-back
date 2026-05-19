@@ -66,7 +66,24 @@ class LaundromatHydrator
         $address->setZipCode((int) $data['zipCode']);
         $address->setCity(trim($data['city']));
         $address->setCountry(trim((string) ($data['country'] ?? 'France')));
-        $address->setGeolocationStatus(GeolocationStatus::Pending);
+
+        $latitude = isset($data['latitude']) && is_numeric($data['latitude']) ? (float) $data['latitude'] : null;
+        $longitude = isset($data['longitude']) && is_numeric($data['longitude']) ? (float) $data['longitude'] : null;
+
+        if (
+            $latitude !== null
+            && $longitude !== null
+            && $latitude >= -90.0
+            && $latitude <= 90.0
+            && $longitude >= -180.0
+            && $longitude <= 180.0
+        ) {
+            $address->setPosition(Address::point($longitude, $latitude));
+            $address->setGeolocationStatus(GeolocationStatus::Geolocated);
+        } else {
+            $address->setPosition(null);
+            $address->setGeolocationStatus(GeolocationStatus::Pending);
+        }
 
         $now = new \DateTimeImmutable();
 
