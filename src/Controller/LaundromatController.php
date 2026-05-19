@@ -9,8 +9,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Contracts\Cache\CacheInterface;
-use Symfony\Contracts\Cache\ItemInterface;
 
 #[Route('/api/laundromat', name: 'api_laundromat_')]
 class LaundromatController extends AbstractApiController
@@ -18,7 +16,6 @@ class LaundromatController extends AbstractApiController
     public function __construct(
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatNearbySerializer $laundromatNearbySerializer,
-        private readonly CacheInterface $cache,
     ) {}
 
     #[Route('/search', name: 'search', methods: ['GET'])]
@@ -40,29 +37,15 @@ class LaundromatController extends AbstractApiController
             array_flip(['services', 'paymentMethods', 'equipmentTypes', 'query', 'openNow']),
         );
 
-        $cacheKey = 'laundromat_bbox_'.hash('sha256', (string) $request->getQueryString());
-
-        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($swLat, $swLng, $neLat, $neLng, $limit, $filters): array {
-            $item->expiresAfter(LaundromatNearbySerializer::CACHE_TTL_SECONDS);
-            $rows = $this->laundromatRepository->findInBbox(
-                (float) $swLat,
-                (float) $swLng,
-                (float) $neLat,
-                (float) $neLng,
-                $limit,
-                $filters,
-            );
-
-            return $this->laundromatNearbySerializer->serializeRows($rows);
-        });
-
-        $response = $this->json($data, Response::HTTP_OK);
-        $response->setPublic();
-        $response->headers->set(
-            'Cache-Control',
-            sprintf('public, max-age=%d, s-maxage=%d', LaundromatNearbySerializer::CACHE_TTL_SECONDS, LaundromatNearbySerializer::CACHE_TTL_SECONDS),
+        $rows = $this->laundromatRepository->findInBbox(
+            (float) $swLat,
+            (float) $swLng,
+            (float) $neLat,
+            (float) $neLng,
+            $limit,
+            $filters,
         );
 
-        return $response;
+        return $this->json($this->laundromatNearbySerializer->serializeRows($rows), Response::HTTP_OK);
     }
 }
