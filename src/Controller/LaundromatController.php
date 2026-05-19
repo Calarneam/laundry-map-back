@@ -24,28 +24,34 @@ class LaundromatController extends AbstractApiController
     #[Route('/search', name: 'search', methods: ['GET'])]
     public function search(Request $request): JsonResponse
     {
-        $latitude = $request->query->get('latitude');
-        $longitude = $request->query->get('longitude');
+        $swLat = $request->query->get('swLat');
+        $swLng = $request->query->get('swLng');
+        $neLat = $request->query->get('neLat');
+        $neLng = $request->query->get('neLng');
 
-        if (!$latitude || !$longitude) {
+        if ($swLat === null || $swLng === null || $neLat === null || $neLng === null) {
             return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
         }
 
-        $lat = (float) $latitude;
-        $lng = (float) $longitude;
-        $radius = max(1, (int) $request->query->get('radius', 5000));
         $limit = max(1, (int) $request->query->get('limit', 50));
 
         $filters = array_intersect_key(
             $request->query->all(),
-            array_flip(['services', 'paymentMethods', 'equipmentTypes']),
+            array_flip(['services', 'paymentMethods', 'equipmentTypes', 'query', 'openNow']),
         );
 
-        $cacheKey = 'laundromat_nearby_'.hash('sha256', (string) $request->getQueryString());
+        $cacheKey = 'laundromat_bbox_'.hash('sha256', (string) $request->getQueryString());
 
-        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($lat, $lng, $radius, $limit, $filters): array {
+        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($minLat, $maxLat, $minLng, $maxLng, $limit, $filters): array {
             $item->expiresAfter(LaundromatNearbySerializer::CACHE_TTL_SECONDS);
-            $rows = $this->laundromatRepository->findNearby($lat, $lng, $radius, $limit, $filters);
+            $rows = $this->laundromatRepository->findInBbox(
+                (float) $swLat,
+                (float) $swLng,
+                (float) $neLat,
+                (float) $neLng,
+                $limit,
+                $filters,
+            );
 
             return $this->laundromatNearbySerializer->serializeRows($rows);
         });

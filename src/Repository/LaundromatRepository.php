@@ -201,6 +201,140 @@ class LaundromatRepository extends ServiceEntityRepository
         return $out;
     }
 
+    public function findInBbox(
+        float $swLat,
+        float $swLng,
+        float $neLat,
+        float $neLng,
+        int $limit = 50,
+        array $filters = [],
+    ): array {
+        $limit = max(1, $limit);
+
+        $entityManager = $this->getEntityManager();
+        $rsm = new ResultSetMappingBuilder($entityManager);
+        $rsm->addRootEntityFromClassMetadata(Laundromat::class, ‘l’);
+        $rsm->addScalarResult(‘distance_meters’, ‘distanceMeters’, ‘float’);
+
+        $centerLat = ($swLat + $neLat) / 2;
+        $centerLng = ($swLng + $neLng) / 2;
+        $centerJson = json_encode([
+            ‘type’ => ‘Point’,
+            ‘coordinates’ => [$centerLng, $centerLat],
+        ], JSON_THROW_ON_ERROR);
+
+        $sql = ‘SELECT ‘
+            . $rsm->generateSelectClause([‘l’ => ‘l’])
+            . ‘, ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:center)) AS distance_meters ‘
+            . ‘FROM laundromat l ‘
+            . ‘INNER JOIN address a ON a.id = l.address_id ‘
+            . ‘WHERE l.status = :status ‘
+            . ‘AND l.deleted_at IS NULL ‘
+            . ‘AND a.position IS NOT NULL ‘
+            . ‘AND a.geolocation_status = :geo_status ‘
+            . ‘AND ST_Y(ST_GeomFromGeoJSON(a.position)) BETWEEN :swLat AND :neLat ‘
+            . ‘AND ST_X(ST_GeomFromGeoJSON(a.position)) BETWEEN :swLng AND :neLng ‘;
+
+        $params = [
+            ‘center’ => $centerJson,
+            ‘swLat’ => $swLat,
+            ‘swLng’ => $swLng,
+            ‘neLat’ => $neLat,
+            ‘neLng’ => $neLng,
+            ‘status’ => LaundromatStatus::Validated->value,
+            ‘geo_status’ => GeolocationStatus::Geolocated->value,
+        ];
+
+        $types = [
+            ‘center’ => ParameterType::STRING,
+            ‘swLat’ => ParameterType::STRING,
+            ‘swLng’ => ParameterType::STRING,
+            ‘neLat’ => ParameterType::STRING,
+            ‘neLng’ => ParameterType::STRING,
+            ‘status’ => ParameterType::STRING,
+            ‘geo_status’ => ParameterType::STRING,
+        ];
+
+        // Text search on establishment name
+        $query = $filters[‘query’] ?? null;
+        if (\is_string($query) && $query !== ‘’) {
+            $sql .= ‘AND l.establishment_name LIKE :query ‘;
+            $params[‘query’] = ‘%’ . $this->escapeLikePattern($query) . ‘%’;
+            $types[‘query’] = ParameterType::STRING;
+        }
+
+        // openNow filter via opening hours (laundromat_closure table)
+        if (!empty($filters[‘openNow’])) {
+            $currentDay = strtolower((new \DateTime())->format(‘l’));
+            $currentTime = (new \DateTime())->format(‘H:i:s’);
+            $sql .= ‘AND EXISTS (
+                SELECT 1 FROM laundromat_closure lc
+                WHERE lc.laundromat_id = l.id
+                AND lc.day = :currentDay
+                AND TIME(lc.start_time) <= :currentTime
+                AND TIME(lc.end_time) > :currentTime
+            ) ‘;
+            $params[‘currentDay’] = $currentDay;
+            $params[‘currentTime’] = $currentTime;
+            $types[‘currentDay’] = ParameterType::STRING;
+            $types[‘currentTime’] = ParameterType::STRING;
+        }
+
+        $addFilter = function (string $filterKey, string $paramName, string $subQuery) use (&$sql, &$params, &$types, $filters) {
+            $items = $filters[$filterKey] ?? null;
+            if ($items === null || $items === ‘’ || $items === []) {
+                return;
+            }
+            if (!\is_array($items)) {
+                $items = [$items];
+            }
+            $validItems = array_filter($items, static fn ($item): bool => \is_string($item) && $item !== ‘’);
+            if ($validItems !== []) {
+                $sql .= $subQuery;
+                $params[$paramName] = array_values($validItems);
+                $types[$paramName] = ArrayParameterType::STRING;
+            }
+        };
+
+        $addFilter(‘services’, ‘services’, ‘AND EXISTS (
+            SELECT 1 FROM laundromat_service ls
+            INNER JOIN service s ON s.id = ls.service_id
+            WHERE ls.laundromat_id = l.id AND s.name IN (:services)
+        ) ‘);
+
+        $addFilter(‘paymentMethods’, ‘payment_methods’, ‘AND EXISTS (
+            SELECT 1 FROM laundromat_payment_method lpm
+            INNER JOIN payment_method pm ON pm.id = lpm.payment_method_id
+            WHERE lpm.laundromat_id = l.id AND pm.name IN (:payment_methods)
+        ) ‘);
+
+        $addFilter(‘equipmentTypes’, ‘equipment_types’, ‘AND EXISTS (
+            SELECT 1 FROM laundromat_equipment le
+            WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
+        ) ‘);
+
+        $sql .= ‘ORDER BY distance_meters ASC LIMIT ‘ . $limit;
+
+        $nativeQuery = $entityManager->createNativeQuery($sql, $rsm);
+        foreach ($types as $name => $type) {
+            $nativeQuery->setParameter($name, $params[$name], $type);
+        }
+
+        $rows = $nativeQuery->getResult();
+        $out = [];
+        foreach ($rows as $row) {
+            $laundromat = $row[0] ?? null;
+            if ($laundromat instanceof Laundromat) {
+                $out[] = [
+                    ‘laundromat’ => $laundromat,
+                    ‘distanceMeters’ => (float) ($row[‘distanceMeters’] ?? 0.0),
+                ];
+            }
+        }
+
+        return $out;
+    }
+
     /**
      * Favoris sans calcul de distance : même forme JSON que {@see findFavorites} (sans distanceMeters).
      * Inclut toutes les laveries favorites validées, même si l’adresse n’est pas géolocalisée.
