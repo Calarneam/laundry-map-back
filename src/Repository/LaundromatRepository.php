@@ -51,41 +51,63 @@ class LaundromatRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function findNearby(
-        float $latitude,
-        float $longitude,
-        int $radiusMeters = 5000,
+    /**
+     * Laveries dont la position est dans la bounding box visible sur la carte.
+     *
+     * @param float $southWestLatitude  latitude du coin sud-ouest (bas-gauche)
+     * @param float $southWestLongitude longitude du coin sud-ouest (bas-gauche)
+     * @param float $northEastLatitude  latitude du coin nord-est (haut-droite)
+     * @param float $northEastLongitude longitude du coin nord-est (haut-droite)
+     */
+    public function findInBoundingBox(
+        float $southWestLatitude,
+        float $southWestLongitude,
+        float $northEastLatitude,
+        float $northEastLongitude,
         int $limit = 50,
         array $filters = [],
     ): array {
-        $radiusMeters = max(1, $radiusMeters);
         $limit = max(1, $limit);
 
-        $pointJson = json_encode([
+        $minLatitude = min($southWestLatitude, $northEastLatitude);
+        $maxLatitude = max($southWestLatitude, $northEastLatitude);
+        $minLongitude = min($southWestLongitude, $northEastLongitude);
+        $maxLongitude = max($southWestLongitude, $northEastLongitude);
+
+        $boundingBoxCenterLatitude = ($minLatitude + $maxLatitude) / 2;
+        $boundingBoxCenterLongitude = ($minLongitude + $maxLongitude) / 2;
+        $boundingBoxCenterGeoJson = json_encode([
             'type' => 'Point',
-            'coordinates' => [$longitude, $latitude],
+            'coordinates' => [$boundingBoxCenterLongitude, $boundingBoxCenterLatitude],
         ], JSON_THROW_ON_ERROR);
 
         $sql = 'SELECT l.id, '
-            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
+            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:bounding_box_center)) AS distance_meters '
             . 'FROM laundromat l '
             . 'INNER JOIN address a ON a.id = l.address_id '
             . 'WHERE l.status = :status '
             . 'AND l.deleted_at IS NULL '
             . 'AND a.position IS NOT NULL '
             . 'AND a.geolocation_status = :geo_status '
-            . 'AND ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) <= :radius ';
+            . 'AND ST_Y(ST_GeomFromGeoJSON(a.position)) BETWEEN :min_latitude AND :max_latitude '
+            . 'AND ST_X(ST_GeomFromGeoJSON(a.position)) BETWEEN :min_longitude AND :max_longitude ';
 
         $params = [
-            'point' => $pointJson,
-            'radius' => $radiusMeters,
+            'bounding_box_center' => $boundingBoxCenterGeoJson,
+            'min_latitude' => $minLatitude,
+            'min_longitude' => $minLongitude,
+            'max_latitude' => $maxLatitude,
+            'max_longitude' => $maxLongitude,
             'status' => LaundromatStatus::Validated->value,
             'geo_status' => GeolocationStatus::Geolocated->value,
         ];
 
         $types = [
-            'point' => ParameterType::STRING,
-            'radius' => ParameterType::INTEGER,
+            'bounding_box_center' => ParameterType::STRING,
+            'min_latitude' => ParameterType::STRING,
+            'min_longitude' => ParameterType::STRING,
+            'max_latitude' => ParameterType::STRING,
+            'max_longitude' => ParameterType::STRING,
             'status' => ParameterType::STRING,
             'geo_status' => ParameterType::STRING,
         ];
@@ -106,6 +128,8 @@ class LaundromatRepository extends ServiceEntityRepository
             }
         };
 
+        $addFilter('address', 'address', 'AND a.street IN (:address) ');
+
         $addFilter('services', 'services', 'AND EXISTS (
             SELECT 1 FROM laundromat_service ls 
             INNER JOIN service s ON s.id = ls.service_id 
@@ -121,6 +145,11 @@ class LaundromatRepository extends ServiceEntityRepository
         $addFilter('equipmentTypes', 'equipment_types', 'AND EXISTS (
             SELECT 1 FROM laundromat_equipment le 
             WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
+        ) ');
+
+        $addFilter('openNow', 'open_now', 'AND EXISTS (
+            SELECT 1 FROM laundromat_closure lc 
+            WHERE lc.laundromat_id = l.id AND lc.day = :day AND lc.start_time <= :now AND lc.end_time >= :now
         ) ');
 
         $sql .= 'ORDER BY distance_meters ASC LIMIT '.$limit;
@@ -143,6 +172,8 @@ class LaundromatRepository extends ServiceEntityRepository
             ->leftJoin('l.logo', 'logo')->addSelect('logo')
             ->leftJoin('l.closures', 'c')->addSelect('c')
             ->leftJoin('l.equipments', 'e')->addSelect('e')
+            ->leftJoin('l.services', 's')->addSelect('s')
+            ->leftJoin('l.paymentMethods', 'pm')->addSelect('pm')
             ->where($qb->expr()->in('l.id', ':ids'))
             ->setParameter('ids', $ids, ArrayParameterType::INTEGER);
 
