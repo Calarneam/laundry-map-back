@@ -17,6 +17,9 @@ use Symfony\Contracts\Cache\ItemInterface;
 #[Route('/api/laundromat', name: 'api_laundromat_')]
 class LaundromatController extends AbstractApiController
 {
+    /** Précision décimale pour regrouper les requêtes carte (~110 m par 0,001° à nos latitudes). */
+    private const BOUNDING_BOX_CACHE_DECIMAL_PLACES = 3;
+
     public function __construct(
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatNearbySerializer $laundromatNearbySerializer,
@@ -27,28 +30,53 @@ class LaundromatController extends AbstractApiController
     #[Route('/search', name: 'search', methods: ['GET'])]
     public function search(Request $request): JsonResponse
     {
-        $latitude = $request->query->get('latitude');
-        $longitude = $request->query->get('longitude');
+        $southWestLatitude = $request->query->get('southWestLatitude');
+        $southWestLongitude = $request->query->get('southWestLongitude');
+        $northEastLatitude = $request->query->get('northEastLatitude');
+        $northEastLongitude = $request->query->get('northEastLongitude');
 
-        if (!$latitude || !$longitude) {
+        if (
+            $southWestLatitude === null || $southWestLatitude === ''
+            || $southWestLongitude === null || $southWestLongitude === ''
+            || $northEastLatitude === null || $northEastLatitude === ''
+            || $northEastLongitude === null || $northEastLongitude === ''
+        ) {
             return $this->json(['error' => 'api.messages.missing_fields'], Response::HTTP_BAD_REQUEST);
         }
 
-        $lat = (float) $latitude;
-        $lng = (float) $longitude;
-        $radius = max(1, (int) $request->query->get('radius', 5000));
         $limit = max(1, (int) $request->query->get('limit', 50));
 
         $filters = array_intersect_key(
             $request->query->all(),
-            array_flip(['services', 'paymentMethods', 'equipmentTypes']),
+            array_flip(['address', 'services', 'paymentMethods', 'equipmentTypes']),
         );
 
-        $cacheKey = 'laundromat_nearby_'.hash('sha256', (string) $request->getQueryString());
+        $boundingBox = $this->snapBoundingBoxForCache(
+            (float) $southWestLatitude,
+            (float) $southWestLongitude,
+            (float) $northEastLatitude,
+            (float) $northEastLongitude,
+        );
 
-        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($lat, $lng, $radius, $limit, $filters): array {
+        $cacheKey = 'laundromat_bbox_'.hash('sha256', json_encode([
+            'southWestLatitude' => $boundingBox['southWestLatitude'],
+            'southWestLongitude' => $boundingBox['southWestLongitude'],
+            'northEastLatitude' => $boundingBox['northEastLatitude'],
+            'northEastLongitude' => $boundingBox['northEastLongitude'],
+            'limit' => $limit,
+            'filters' => $filters,
+        ], JSON_THROW_ON_ERROR));
+
+        $data = $this->cache->get($cacheKey, function (ItemInterface $item) use ($boundingBox, $limit, $filters): array {
             $item->expiresAfter(LaundromatNearbySerializer::CACHE_TTL_SECONDS);
-            $rows = $this->laundromatRepository->findNearby($lat, $lng, $radius, $limit, $filters);
+            $rows = $this->laundromatRepository->findInBoundingBox(
+                $boundingBox['southWestLatitude'],
+                $boundingBox['southWestLongitude'],
+                $boundingBox['northEastLatitude'],
+                $boundingBox['northEastLongitude'],
+                $limit,
+                $filters,
+            );
 
             return $this->laundromatNearbySerializer->serializeRows($rows);
         });
@@ -240,5 +268,31 @@ class LaundromatController extends AbstractApiController
         }
 
         $data['isWiLineSynced'] = true;
+    }
+
+    /**
+     * Agrandit légèrement la box sur une grille fixe pour mutualiser le cache entre pans/zoom proches.
+     *
+     * @return array{
+     *     southWestLatitude: float,
+     *     southWestLongitude: float,
+     *     northEastLatitude: float,
+     *     northEastLongitude: float
+     * }
+     */
+    private function snapBoundingBoxForCache(
+        float $southWestLatitude,
+        float $southWestLongitude,
+        float $northEastLatitude,
+        float $northEastLongitude,
+    ): array {
+        $factor = 10 ** self::BOUNDING_BOX_CACHE_DECIMAL_PLACES;
+
+        return [
+            'southWestLatitude' => floor($southWestLatitude * $factor) / $factor,
+            'southWestLongitude' => floor($southWestLongitude * $factor) / $factor,
+            'northEastLatitude' => ceil($northEastLatitude * $factor) / $factor,
+            'northEastLongitude' => ceil($northEastLongitude * $factor) / $factor,
+        ];
     }
 }
