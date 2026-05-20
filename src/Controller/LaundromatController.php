@@ -99,7 +99,6 @@ class LaundromatController extends AbstractApiController
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
-            'status' => $laundromat->getStatus()?->value,
             'wiLineReference' => $laundromat->getWiLineReference(),
 
             'address' => $laundromat->getAddress() ? [
