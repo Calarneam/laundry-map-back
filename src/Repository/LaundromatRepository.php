@@ -51,44 +51,89 @@ class LaundromatRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function findNearby(
-        float $latitude,
-        float $longitude,
-        int $radiusMeters = 5000,
+    /**
+     * Laveries visibles dans la bounding box de la carte (coin sud-ouest + coin nord-est).
+     *
+     * @param float $swLat latitude du coin bas-gauche (sud-ouest)
+     * @param float $swLng longitude du coin bas-gauche (sud-ouest)
+     * @param float $neLat latitude du coin haut-droite (nord-est)
+     * @param float $neLng longitude du coin haut-droite (nord-est)
+     */
+    public function findInBbox(
+        float $swLat,
+        float $swLng,
+        float $neLat,
+        float $neLng,
         int $limit = 50,
         array $filters = [],
     ): array {
-        $radiusMeters = max(1, $radiusMeters);
         $limit = max(1, $limit);
 
-        $pointJson = json_encode([
+        $minLat = min($swLat, $neLat);
+        $maxLat = max($swLat, $neLat);
+        $minLng = min($swLng, $neLng);
+        $maxLng = max($swLng, $neLng);
+
+        $centerLat = ($minLat + $maxLat) / 2;
+        $centerLng = ($minLng + $maxLng) / 2;
+        $centerJson = json_encode([
             'type' => 'Point',
-            'coordinates' => [$longitude, $latitude],
+            'coordinates' => [$centerLng, $centerLat],
         ], JSON_THROW_ON_ERROR);
 
         $sql = 'SELECT l.id, '
-            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
+            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:center)) AS distance_meters '
             . 'FROM laundromat l '
             . 'INNER JOIN address a ON a.id = l.address_id '
             . 'WHERE l.status = :status '
             . 'AND l.deleted_at IS NULL '
             . 'AND a.position IS NOT NULL '
             . 'AND a.geolocation_status = :geo_status '
-            . 'AND ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) <= :radius ';
+            . 'AND ST_Y(ST_GeomFromGeoJSON(a.position)) BETWEEN :minLat AND :maxLat '
+            . 'AND ST_X(ST_GeomFromGeoJSON(a.position)) BETWEEN :minLng AND :maxLng ';
 
         $params = [
-            'point' => $pointJson,
-            'radius' => $radiusMeters,
+            'center' => $centerJson,
+            'minLat' => $minLat,
+            'minLng' => $minLng,
+            'maxLat' => $maxLat,
+            'maxLng' => $maxLng,
             'status' => LaundromatStatus::Validated->value,
             'geo_status' => GeolocationStatus::Geolocated->value,
         ];
 
         $types = [
-            'point' => ParameterType::STRING,
-            'radius' => ParameterType::INTEGER,
+            'center' => ParameterType::STRING,
+            'minLat' => ParameterType::STRING,
+            'minLng' => ParameterType::STRING,
+            'maxLat' => ParameterType::STRING,
+            'maxLng' => ParameterType::STRING,
             'status' => ParameterType::STRING,
             'geo_status' => ParameterType::STRING,
         ];
+
+        $query = $filters['query'] ?? null;
+        if (\is_string($query) && $query !== '') {
+            $sql .= 'AND l.establishment_name LIKE :query ';
+            $params['query'] = '%'.$this->escapeLikePattern($query).'%';
+            $types['query'] = ParameterType::STRING;
+        }
+
+        if (!empty($filters['openNow'])) {
+            $currentDay = strtolower((new \DateTime())->format('l'));
+            $currentTime = (new \DateTime())->format('H:i:s');
+            $sql .= 'AND EXISTS (
+                SELECT 1 FROM laundromat_closure lc
+                WHERE lc.laundromat_id = l.id
+                AND lc.day = :currentDay
+                AND TIME(lc.start_time) <= :currentTime
+                AND TIME(lc.end_time) > :currentTime
+            ) ';
+            $params['currentDay'] = $currentDay;
+            $params['currentTime'] = $currentTime;
+            $types['currentDay'] = ParameterType::STRING;
+            $types['currentTime'] = ParameterType::STRING;
+        }
 
         $addFilter = function (string $filterKey, string $paramName, string $subQuery) use (&$sql, &$params, &$types, $filters) {
             $items = $filters[$filterKey] ?? null;
@@ -106,20 +151,22 @@ class LaundromatRepository extends ServiceEntityRepository
             }
         };
 
+        $addFilter('address', 'address', 'AND a.street IN (:address) ');
+
         $addFilter('services', 'services', 'AND EXISTS (
-            SELECT 1 FROM laundromat_service ls 
-            INNER JOIN service s ON s.id = ls.service_id 
+            SELECT 1 FROM laundromat_service ls
+            INNER JOIN service s ON s.id = ls.service_id
             WHERE ls.laundromat_id = l.id AND s.name IN (:services)
         ) ');
 
         $addFilter('paymentMethods', 'payment_methods', 'AND EXISTS (
-            SELECT 1 FROM laundromat_payment_method lpm 
-            INNER JOIN payment_method pm ON pm.id = lpm.payment_method_id 
+            SELECT 1 FROM laundromat_payment_method lpm
+            INNER JOIN payment_method pm ON pm.id = lpm.payment_method_id
             WHERE lpm.laundromat_id = l.id AND pm.name IN (:payment_methods)
         ) ');
 
         $addFilter('equipmentTypes', 'equipment_types', 'AND EXISTS (
-            SELECT 1 FROM laundromat_equipment le 
+            SELECT 1 FROM laundromat_equipment le
             WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
         ) ');
 
@@ -143,6 +190,8 @@ class LaundromatRepository extends ServiceEntityRepository
             ->leftJoin('l.logo', 'logo')->addSelect('logo')
             ->leftJoin('l.closures', 'c')->addSelect('c')
             ->leftJoin('l.equipments', 'e')->addSelect('e')
+            ->leftJoin('l.services', 's')->addSelect('s')
+            ->leftJoin('l.paymentMethods', 'pm')->addSelect('pm')
             ->where($qb->expr()->in('l.id', ':ids'))
             ->setParameter('ids', $ids, ArrayParameterType::INTEGER);
 
@@ -157,14 +206,13 @@ class LaundromatRepository extends ServiceEntityRepository
         $out = [];
         foreach ($distanceRows as $r) {
             $id = (int) ($r['id']);
-            $distanceMeters = $r['distance_meters'];
             if (!isset($byId[$id])) {
                 continue;
             }
 
             $out[] = [
                 'laundromat' => $byId[$id],
-                'distanceMeters' => (float) $distanceMeters,
+                'distanceMeters' => (float) $r['distance_meters'],
                 'averageRating' => null,
             ];
         }
@@ -195,140 +243,6 @@ class LaundromatRepository extends ServiceEntityRepository
                 if (null !== $lid && isset($ratingById[$lid])) {
                     $out[$i]['averageRating'] = $ratingById[$lid];
                 }
-            }
-        }
-
-        return $out;
-    }
-
-    public function findInBbox(
-        float $swLat,
-        float $swLng,
-        float $neLat,
-        float $neLng,
-        int $limit = 50,
-        array $filters = [],
-    ): array {
-        $limit = max(1, $limit);
-
-        $entityManager = $this->getEntityManager();
-        $rsm = new ResultSetMappingBuilder($entityManager);
-        $rsm->addRootEntityFromClassMetadata(Laundromat::class, ‘l’);
-        $rsm->addScalarResult(‘distance_meters’, ‘distanceMeters’, ‘float’);
-
-        $centerLat = ($swLat + $neLat) / 2;
-        $centerLng = ($swLng + $neLng) / 2;
-        $centerJson = json_encode([
-            ‘type’ => ‘Point’,
-            ‘coordinates’ => [$centerLng, $centerLat],
-        ], JSON_THROW_ON_ERROR);
-
-        $sql = ‘SELECT ‘
-            . $rsm->generateSelectClause([‘l’ => ‘l’])
-            . ‘, ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:center)) AS distance_meters ‘
-            . ‘FROM laundromat l ‘
-            . ‘INNER JOIN address a ON a.id = l.address_id ‘
-            . ‘WHERE l.status = :status ‘
-            . ‘AND l.deleted_at IS NULL ‘
-            . ‘AND a.position IS NOT NULL ‘
-            . ‘AND a.geolocation_status = :geo_status ‘
-            . ‘AND ST_Y(ST_GeomFromGeoJSON(a.position)) BETWEEN :swLat AND :neLat ‘
-            . ‘AND ST_X(ST_GeomFromGeoJSON(a.position)) BETWEEN :swLng AND :neLng ‘;
-
-        $params = [
-            ‘center’ => $centerJson,
-            ‘swLat’ => $swLat,
-            ‘swLng’ => $swLng,
-            ‘neLat’ => $neLat,
-            ‘neLng’ => $neLng,
-            ‘status’ => LaundromatStatus::Validated->value,
-            ‘geo_status’ => GeolocationStatus::Geolocated->value,
-        ];
-
-        $types = [
-            ‘center’ => ParameterType::STRING,
-            ‘swLat’ => ParameterType::STRING,
-            ‘swLng’ => ParameterType::STRING,
-            ‘neLat’ => ParameterType::STRING,
-            ‘neLng’ => ParameterType::STRING,
-            ‘status’ => ParameterType::STRING,
-            ‘geo_status’ => ParameterType::STRING,
-        ];
-
-        // Text search on establishment name
-        $query = $filters[‘query’] ?? null;
-        if (\is_string($query) && $query !== ‘’) {
-            $sql .= ‘AND l.establishment_name LIKE :query ‘;
-            $params[‘query’] = ‘%’ . $this->escapeLikePattern($query) . ‘%’;
-            $types[‘query’] = ParameterType::STRING;
-        }
-
-        // openNow filter via opening hours (laundromat_closure table)
-        if (!empty($filters[‘openNow’])) {
-            $currentDay = strtolower((new \DateTime())->format(‘l’));
-            $currentTime = (new \DateTime())->format(‘H:i:s’);
-            $sql .= ‘AND EXISTS (
-                SELECT 1 FROM laundromat_closure lc
-                WHERE lc.laundromat_id = l.id
-                AND lc.day = :currentDay
-                AND TIME(lc.start_time) <= :currentTime
-                AND TIME(lc.end_time) > :currentTime
-            ) ‘;
-            $params[‘currentDay’] = $currentDay;
-            $params[‘currentTime’] = $currentTime;
-            $types[‘currentDay’] = ParameterType::STRING;
-            $types[‘currentTime’] = ParameterType::STRING;
-        }
-
-        $addFilter = function (string $filterKey, string $paramName, string $subQuery) use (&$sql, &$params, &$types, $filters) {
-            $items = $filters[$filterKey] ?? null;
-            if ($items === null || $items === ‘’ || $items === []) {
-                return;
-            }
-            if (!\is_array($items)) {
-                $items = [$items];
-            }
-            $validItems = array_filter($items, static fn ($item): bool => \is_string($item) && $item !== ‘’);
-            if ($validItems !== []) {
-                $sql .= $subQuery;
-                $params[$paramName] = array_values($validItems);
-                $types[$paramName] = ArrayParameterType::STRING;
-            }
-        };
-
-        $addFilter(‘services’, ‘services’, ‘AND EXISTS (
-            SELECT 1 FROM laundromat_service ls
-            INNER JOIN service s ON s.id = ls.service_id
-            WHERE ls.laundromat_id = l.id AND s.name IN (:services)
-        ) ‘);
-
-        $addFilter(‘paymentMethods’, ‘payment_methods’, ‘AND EXISTS (
-            SELECT 1 FROM laundromat_payment_method lpm
-            INNER JOIN payment_method pm ON pm.id = lpm.payment_method_id
-            WHERE lpm.laundromat_id = l.id AND pm.name IN (:payment_methods)
-        ) ‘);
-
-        $addFilter(‘equipmentTypes’, ‘equipment_types’, ‘AND EXISTS (
-            SELECT 1 FROM laundromat_equipment le
-            WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
-        ) ‘);
-
-        $sql .= ‘ORDER BY distance_meters ASC LIMIT ‘ . $limit;
-
-        $nativeQuery = $entityManager->createNativeQuery($sql, $rsm);
-        foreach ($types as $name => $type) {
-            $nativeQuery->setParameter($name, $params[$name], $type);
-        }
-
-        $rows = $nativeQuery->getResult();
-        $out = [];
-        foreach ($rows as $row) {
-            $laundromat = $row[0] ?? null;
-            if ($laundromat instanceof Laundromat) {
-                $out[] = [
-                    ‘laundromat’ => $laundromat,
-                    ‘distanceMeters’ => (float) ($row[‘distanceMeters’] ?? 0.0),
-                ];
             }
         }
 

@@ -3,10 +3,8 @@
 namespace App\Controller;
 
 use App\Controller\AbstractApiController;
-use App\Entity\Laundromat;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatNearbySerializer;
-use App\Service\WiLineApiService;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,8 +16,6 @@ class LaundromatController extends AbstractApiController
     public function __construct(
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatNearbySerializer $laundromatNearbySerializer,
-        private readonly CacheInterface $cache,
-        private readonly WiLineApiService $wiLineApiService,
     ) {}
 
     #[Route('/search', name: 'search', methods: ['GET'])]
@@ -38,7 +34,7 @@ class LaundromatController extends AbstractApiController
 
         $filters = array_intersect_key(
             $request->query->all(),
-            array_flip(['services', 'paymentMethods', 'equipmentTypes', 'query', 'openNow']),
+            array_flip(['address', 'services', 'paymentMethods', 'equipmentTypes', 'query', 'openNow']),
         );
 
         $rows = $this->laundromatRepository->findInBbox(
