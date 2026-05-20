@@ -26,11 +26,23 @@ class WiLineApiService {
             ],
             ...$options,
         ]);
-        $data = $response->toArray(false);
-        if (isset($data['error'])) {
-            $this->cache->delete('wi_line_token');
-            throw new \RuntimeException($data['error']);
+
+        $status = $response->getStatusCode();
+
+        if ($status === 404) {
+            return [];
         }
+
+        if ($status === 401 || $status === 403) {
+            $this->cache->delete('wi_line_token');
+        }
+
+        $data = $response->toArray(false);
+
+        if ($status >= 400 || isset($data['error'])) {
+            throw new \RuntimeException($data['error'] ?? "WiLine API HTTP {$status}");
+        }
+
         return $data;
     }
 
