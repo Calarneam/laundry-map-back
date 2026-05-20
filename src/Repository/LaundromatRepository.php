@@ -380,4 +380,29 @@ class LaundromatRepository extends ServiceEntityRepository
             $out[$laundromatId]['equipments'][$type] = (int) $row['count'];
         }
     }
+
+    public function findWithDetails(int $id): ?Laundromat
+    {
+        return $this->createQueryBuilder('l')
+            ->where('l.id = :id')
+            ->setParameter('id', $id)
+            ->leftJoin('l.services', 's')
+            ->addSelect('s')
+            ->leftJoin('l.equipments', 'e')
+            ->addSelect('e')
+            ->leftJoin('l.paymentMethods', 'pm')
+            ->addSelect('pm')
+            ->leftJoin('l.medias', 'm')
+            ->addSelect('m')
+            ->leftJoin('l.ratings', 'r')
+            ->addSelect('r')
+            ->leftJoin('l.closures', 'c')
+            ->addSelect('c')
+            ->leftJoin('l.exceptionalClosures', 'ec')
+            ->addSelect('ec')
+            ->leftJoin('l.address', 'a')
+            ->addSelect('a')
+            ->getQuery()
+            ->getOneOrNullResult();
+    }
 }
