@@ -10,7 +10,6 @@ use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\ParameterType;
-use Doctrine\ORM\Query\ResultSetMappingBuilder;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -52,47 +51,63 @@ class LaundromatRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function findNearby(
-        float $latitude,
-        float $longitude,
-        int $radiusMeters = 5000,
+    /**
+     * Laveries dont la position est dans la bounding box visible sur la carte.
+     *
+     * @param float $southWestLatitude  latitude du coin sud-ouest (bas-gauche)
+     * @param float $southWestLongitude longitude du coin sud-ouest (bas-gauche)
+     * @param float $northEastLatitude  latitude du coin nord-est (haut-droite)
+     * @param float $northEastLongitude longitude du coin nord-est (haut-droite)
+     */
+    public function findInBoundingBox(
+        float $southWestLatitude,
+        float $southWestLongitude,
+        float $northEastLatitude,
+        float $northEastLongitude,
         int $limit = 50,
         array $filters = [],
     ): array {
-        $radiusMeters = max(1, $radiusMeters);
         $limit = max(1, $limit);
 
-        $entityManager = $this->getEntityManager();
-        $rsm = new ResultSetMappingBuilder($entityManager);
-        $rsm->addRootEntityFromClassMetadata(Laundromat::class, 'l');
-        $rsm->addScalarResult('distance_meters', 'distanceMeters', 'float');
+        $minLatitude = min($southWestLatitude, $northEastLatitude);
+        $maxLatitude = max($southWestLatitude, $northEastLatitude);
+        $minLongitude = min($southWestLongitude, $northEastLongitude);
+        $maxLongitude = max($southWestLongitude, $northEastLongitude);
 
-        $pointJson = json_encode([
+        $boundingBoxCenterLatitude = ($minLatitude + $maxLatitude) / 2;
+        $boundingBoxCenterLongitude = ($minLongitude + $maxLongitude) / 2;
+        $boundingBoxCenterGeoJson = json_encode([
             'type' => 'Point',
-            'coordinates' => [$longitude, $latitude],
+            'coordinates' => [$boundingBoxCenterLongitude, $boundingBoxCenterLatitude],
         ], JSON_THROW_ON_ERROR);
 
-        $sql = 'SELECT '
-            . $rsm->generateSelectClause(['l' => 'l'])
-            . ', ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) AS distance_meters '
+        $sql = 'SELECT l.id, '
+            . 'ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:bounding_box_center)) AS distance_meters '
             . 'FROM laundromat l '
             . 'INNER JOIN address a ON a.id = l.address_id '
             . 'WHERE l.status = :status '
             . 'AND l.deleted_at IS NULL '
             . 'AND a.position IS NOT NULL '
             . 'AND a.geolocation_status = :geo_status '
-            . 'AND ST_Distance_Sphere(ST_GeomFromGeoJSON(a.position), ST_GeomFromGeoJSON(:point)) <= :radius ';
+            . 'AND ST_Y(ST_GeomFromGeoJSON(a.position)) BETWEEN :min_latitude AND :max_latitude '
+            . 'AND ST_X(ST_GeomFromGeoJSON(a.position)) BETWEEN :min_longitude AND :max_longitude ';
 
         $params = [
-            'point' => $pointJson,
-            'radius' => $radiusMeters,
+            'bounding_box_center' => $boundingBoxCenterGeoJson,
+            'min_latitude' => $minLatitude,
+            'min_longitude' => $minLongitude,
+            'max_latitude' => $maxLatitude,
+            'max_longitude' => $maxLongitude,
             'status' => LaundromatStatus::Validated->value,
             'geo_status' => GeolocationStatus::Geolocated->value,
         ];
 
         $types = [
-            'point' => ParameterType::STRING,
-            'radius' => ParameterType::INTEGER,
+            'bounding_box_center' => ParameterType::STRING,
+            'min_latitude' => ParameterType::STRING,
+            'min_longitude' => ParameterType::STRING,
+            'max_latitude' => ParameterType::STRING,
+            'max_longitude' => ParameterType::STRING,
             'status' => ParameterType::STRING,
             'geo_status' => ParameterType::STRING,
         ];
@@ -113,6 +128,14 @@ class LaundromatRepository extends ServiceEntityRepository
             }
         };
 
+        if (isset($filters['query']) && $filters['query'] !== '') {
+            $sql .= 'AND (l.establishment_name LIKE :query OR a.city LIKE :query) ';
+            $params['query'] = '%' . $filters['query'] . '%';
+            $types['query'] = ParameterType::STRING;
+        }
+
+        $addFilter('address', 'address', 'AND a.street IN (:address) ');
+
         $addFilter('services', 'services', 'AND EXISTS (
             SELECT 1 FROM laundromat_service ls 
             INNER JOIN service s ON s.id = ls.service_id 
@@ -130,26 +153,85 @@ class LaundromatRepository extends ServiceEntityRepository
             WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
         ) ');
 
-        $sql .= 'ORDER BY distance_meters ASC LIMIT ' . $limit;
+        $addFilter('openNow', 'open_now', 'AND EXISTS (
+            SELECT 1 FROM laundromat_closure lc 
+            WHERE lc.laundromat_id = l.id AND lc.day = :day AND lc.start_time <= :now AND lc.end_time >= :now
+        ) ');
 
-        $query = $entityManager->createNativeQuery($sql, $rsm);
-        $query->setParameters($params);
+        $sql .= 'ORDER BY distance_meters ASC LIMIT '.$limit;
 
-        foreach ($types as $name => $type) {
-            $query->setParameter($name, $params[$name], $type);
+        $distanceRows = $this->getEntityManager()->getConnection()->executeQuery($sql, $params, $types)->fetchAllAssociative();
+
+        if ($distanceRows === []) {
+            return [];
         }
 
-        $rows = $query->getResult();
-        $out = [];
+        $ids = array_values(array_unique(array_map(static fn (array $r): int => (int) ($r['id']), $distanceRows)));
+        $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
 
-        foreach ($rows as $row) {
-            $laundromat = $row[0] ?? null;
-            
-            if ($laundromat instanceof Laundromat) {
-                $out[] = [
-                    'laundromat' => $laundromat,
-                    'distanceMeters' => (float) ($row['distanceMeters'] ?? 0.0),
-                ];
+        if ($ids === []) {
+            return [];
+        }
+
+        $qb = $this->createQueryBuilder('l');
+        $qb->leftJoin('l.address', 'a')->addSelect('a')
+            ->leftJoin('l.logo', 'logo')->addSelect('logo')
+            ->leftJoin('l.closures', 'c')->addSelect('c')
+            ->leftJoin('l.equipments', 'e')->addSelect('e')
+            ->leftJoin('l.services', 's')->addSelect('s')
+            ->leftJoin('l.paymentMethods', 'pm')->addSelect('pm')
+            ->where($qb->expr()->in('l.id', ':ids'))
+            ->setParameter('ids', $ids, ArrayParameterType::INTEGER);
+
+        $loaded = $qb->getQuery()->getResult();
+        $byId = [];
+        foreach ($loaded as $entity) {
+            if ($entity instanceof Laundromat && null !== $entity->getId()) {
+                $byId[$entity->getId()] = $entity;
+            }
+        }
+
+        $out = [];
+        foreach ($distanceRows as $r) {
+            $id = (int) ($r['id']);
+            $distanceMeters = $r['distance_meters'];
+            if (!isset($byId[$id])) {
+                continue;
+            }
+
+            $out[] = [
+                'laundromat' => $byId[$id],
+                'distanceMeters' => (float) $distanceMeters,
+                'averageRating' => null,
+            ];
+        }
+
+        if ($out !== []) {
+            $aggSql = 'SELECT lr.laundromat_id AS id, ROUND(AVG(lr.rating), 2) AS average_rating '
+                . 'FROM laundromat_rating lr '
+                . 'WHERE lr.laundromat_id IN (:ids) '
+                . 'AND lr.rating IS NOT NULL AND lr.rating BETWEEN 0 AND 5 '
+                . 'GROUP BY lr.laundromat_id';
+            $aggRows = $this->getEntityManager()->getConnection()->executeQuery(
+                $aggSql,
+                ['ids' => $ids],
+                ['ids' => ArrayParameterType::INTEGER],
+            )->fetchAllAssociative();
+
+            $ratingById = [];
+            foreach ($aggRows as $row) {
+                $rid = (int) ($row['id']);
+                $avg = $row['average_rating'] ?? null;
+                if ($rid > 0 && $avg !== null) {
+                    $ratingById[$rid] = (float) $avg;
+                }
+            }
+
+            foreach ($out as $i => $item) {
+                $lid = $item['laundromat']->getId();
+                if (null !== $lid && isset($ratingById[$lid])) {
+                    $out[$i]['averageRating'] = $ratingById[$lid];
+                }
             }
         }
 
@@ -334,5 +416,30 @@ class LaundromatRepository extends ServiceEntityRepository
             $type = strtolower((string) $row['type']);
             $out[$laundromatId]['equipments'][$type] = (int) $row['count'];
         }
+    }
+
+    public function findWithDetails(int $id): ?Laundromat
+    {
+        return $this->createQueryBuilder('l')
+            ->where('l.id = :id')
+            ->setParameter('id', $id)
+            ->leftJoin('l.services', 's')
+            ->addSelect('s')
+            ->leftJoin('l.equipments', 'e')
+            ->addSelect('e')
+            ->leftJoin('l.paymentMethods', 'pm')
+            ->addSelect('pm')
+            ->leftJoin('l.medias', 'm')
+            ->addSelect('m')
+            ->leftJoin('l.ratings', 'r')
+            ->addSelect('r')
+            ->leftJoin('l.closures', 'c')
+            ->addSelect('c')
+            ->leftJoin('l.exceptionalClosures', 'ec')
+            ->addSelect('ec')
+            ->leftJoin('l.address', 'a')
+            ->addSelect('a')
+            ->getQuery()
+            ->getOneOrNullResult();
     }
 }

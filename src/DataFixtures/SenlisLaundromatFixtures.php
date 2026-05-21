@@ -159,8 +159,8 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
         $manager->persist($address);
 
         $logo = new Media();
-        $logo->setLocation('/uploads/fixtures/logo-senlis-'.$site['wiLine'].'.png');
-        $logo->setOriginalName('logo-'.$site['wiLine'].'.png');
+        $logo->setLocation('/uploads/image.png');
+        $logo->setOriginalName('image.png');
         $logo->setSize($site['wiLine'] % 9_000 + 4_096);
         $logo->setMimeType('image/png');
         $manager->persist($logo);

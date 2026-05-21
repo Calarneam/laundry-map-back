@@ -51,7 +51,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $manager->persist($address);
 
         $logo = new Media();
-        $logo->setLocation('/uploads/logo-launderette-paris.png');
+        $logo->setLocation('/uploads/image.png');
         $logo->setOriginalName('logo.png');
         $logo->setSize(10240);
         $logo->setMimeType('image/png');
@@ -143,10 +143,10 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
 
         // Média supplémentaire (photo intérieur)
         $mediaPhoto = new Media();
-        $mediaPhoto->setLocation('/uploads/laundromat-interior-1.jpg');
-        $mediaPhoto->setOriginalName('interieur.jpg');
+        $mediaPhoto->setLocation('/uploads/image.png');
+        $mediaPhoto->setOriginalName('image.png');
         $mediaPhoto->setSize(256000);
-        $mediaPhoto->setMimeType('image/jpeg');
+        $mediaPhoto->setMimeType('image/png');
         $manager->persist($mediaPhoto);
 
         $laundromatMedia = new LaundromatMedia();
