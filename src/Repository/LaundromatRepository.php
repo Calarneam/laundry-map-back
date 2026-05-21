@@ -128,6 +128,12 @@ class LaundromatRepository extends ServiceEntityRepository
             }
         };
 
+        if (isset($filters['query']) && $filters['query'] !== '') {
+            $sql .= 'AND (l.establishment_name LIKE :query OR a.city LIKE :query) ';
+            $params['query'] = '%' . $filters['query'] . '%';
+            $types['query'] = ParameterType::STRING;
+        }
+
         $addFilter('address', 'address', 'AND a.street IN (:address) ');
 
         $addFilter('services', 'services', 'AND EXISTS (
