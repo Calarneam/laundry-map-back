@@ -153,10 +153,17 @@ class LaundromatRepository extends ServiceEntityRepository
             WHERE le.laundromat_id = l.id AND le.type IN (:equipment_types)
         ) ');
 
-        $addFilter('openNow', 'open_now', 'AND EXISTS (
-            SELECT 1 FROM laundromat_closure lc 
-            WHERE lc.laundromat_id = l.id AND lc.day = :day AND lc.start_time <= :now AND lc.end_time >= :now
-        ) ');
+        if (!empty($filters['openNow'])) {
+            $now = new \DateTimeImmutable();
+            $sql .= 'AND EXISTS (
+            SELECT 1 FROM laundromat_closure lc
+            WHERE lc.laundromat_id = l.id AND lc.day = :open_now_day AND lc.start_time <= :open_now_time AND lc.end_time >= :open_now_time
+        ) ';
+            $params['open_now_day'] = strtolower($now->format('l'));
+            $params['open_now_time'] = $now->format('H:i');
+            $types['open_now_day'] = ParameterType::STRING;
+            $types['open_now_time'] = ParameterType::STRING;
+        }
 
         $sql .= 'ORDER BY distance_meters ASC LIMIT '.$limit;
 
