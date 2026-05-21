@@ -48,7 +48,7 @@ class LaundromatController extends AbstractApiController
 
         $filters = array_intersect_key(
             $request->query->all(),
-            array_flip(['address', 'services', 'paymentMethods', 'equipmentTypes']),
+            array_flip(['query', 'address', 'services', 'paymentMethods', 'equipmentTypes']),
         );
 
         $boundingBox = $this->snapBoundingBoxForCache(
