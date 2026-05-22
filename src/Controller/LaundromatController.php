@@ -4,6 +4,7 @@ namespace App\Controller;
 
 use App\Controller\AbstractApiController;
 use App\Entity\Laundromat;
+use App\Repository\LaundromatRatingRepository;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatNearbySerializer;
 use App\Service\WiLineApiService;
@@ -22,6 +23,7 @@ class LaundromatController extends AbstractApiController
 
     public function __construct(
         private readonly LaundromatRepository $laundromatRepository,
+        private readonly LaundromatRatingRepository $laundromatRatingRepository,
         private readonly LaundromatNearbySerializer $laundromatNearbySerializer,
         private readonly CacheInterface $cache,
         private readonly WiLineApiService $wiLineApiService,
@@ -122,6 +124,10 @@ class LaundromatController extends AbstractApiController
      */
     private function serializeLaundromat(Laundromat $laundromat): array
     {
+        $ratingStats = $this->laundromatRatingRepository->getAggregatesForLaundromat(
+            (int) $laundromat->getId(),
+        );
+
         return [
             'id' => $laundromat->getId(),
             'establishmentName' => $laundromat->getEstablishmentName(),
@@ -164,11 +170,14 @@ class LaundromatController extends AbstractApiController
                 'description' => $media->getDescription(),
             ], $laundromat->getMedias()->toArray()),
 
+            'averageRating' => $ratingStats['averageRating'],
+            'ratingCount' => $ratingStats['ratingCount'],
+
             'ratings' => array_map(fn($rating) => [
                 'id' => $rating->getId(),
                 'rating' => $rating->getRating(),
                 'comment' => $rating->getComment(),
-                'createdAt' => $rating->getCreatedAt()->format('Y-m-d H:i:s'),
+                'createdAt' => $rating->getRatedAt()->format('Y-m-d H:i:s'),
             ], $laundromat->getRatings()->toArray()),
         ];
     }

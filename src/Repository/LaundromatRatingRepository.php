@@ -16,28 +16,21 @@ class LaundromatRatingRepository extends ServiceEntityRepository
         parent::__construct($registry, LaundromatRating::class);
     }
 
-    //    /**
-    //     * @return LaundromatRating[] Returns an array of LaundromatRating objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * @return array{averageRating: float|null, ratingCount: int}
+     */
+    public function getAggregatesForLaundromat(int $laundromatId): array
+    {
+        $result = $this->createQueryBuilder('r')
+            ->select('AVG(r.rating) AS averageRating, COUNT(r.id) AS ratingCount')
+            ->andWhere('r.laundromat = :laundromatId')
+            ->setParameter('laundromatId', $laundromatId)
+            ->getQuery()
+            ->getSingleResult();
 
-    //    public function findOneBySomeField($value): ?LaundromatRating
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+        return [
+            'averageRating' => $result['averageRating'] !== null ? round((float) $result['averageRating'], 2) : null,
+            'ratingCount' => (int) $result['ratingCount'],
+        ];
+    }
 }
