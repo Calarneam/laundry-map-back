@@ -11,7 +11,9 @@ use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
 use App\Entity\LaundromatMedia;
 use App\Entity\Media;
+use App\Entity\PaymentMethod;
 use App\Entity\Service;
+use App\Repository\PaymentMethodRepository;
 use App\Repository\ServiceRepository;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
@@ -29,6 +31,8 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_PHOTO = 'api.messages.invalid_photo';
     private const MESSAGE_INVALID_ADDRESS = 'api.messages.invalid_address';
     private const MESSAGE_INVALID_LAUNDROMAT = 'api.messages.invalid_laundromat';
+    private const MESSAGE_INVALID_SERVICE = 'api.messages.invalid_service';
+    private const MESSAGE_INVALID_PAYMENT_METHOD = 'api.messages.invalid_payment_method';
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
@@ -40,6 +44,7 @@ class LaundromatHydrator
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
         private readonly ServiceRepository $serviceRepository,
+        private readonly PaymentMethodRepository $paymentMethodRepository,
     ) {}
 
     /**
@@ -103,6 +108,11 @@ class LaundromatHydrator
         $servicesError = $this->syncServices($laundromat, $data['services'] ?? []);
         if ($servicesError instanceof JsonResponse) {
             return $servicesError;
+        }
+
+        $paymentMethodsError = $this->syncPaymentMethods($laundromat, $data['paymentMethods'] ?? []);
+        if ($paymentMethodsError instanceof JsonResponse) {
+            return $paymentMethodsError;
         }
 
         $closuresError = $this->syncClosures($laundromat, $data['openingHours'] ?? [], (bool) ($data['isOpenTwentyFourSeven'] ?? false), $now);
@@ -193,7 +203,7 @@ class LaundromatHydrator
             $service = $this->serviceRepository->findOneBy(['name' => $normalizedServiceName]);
 
             if (!$service instanceof Service) {
-                return $this->jsonError(self::MESSAGE_INVALID_LAUNDROMAT, Response::HTTP_BAD_REQUEST);
+                return $this->jsonError(self::MESSAGE_INVALID_SERVICE, Response::HTTP_BAD_REQUEST);
             }
 
             $laundromatServices?->add($service);
@@ -258,6 +268,33 @@ class LaundromatHydrator
 
             $closures?->add($closure);
             $this->entityManager->persist($closure);
+        }
+
+        return null;
+    }
+
+    private function syncPaymentMethods(Laundromat $laundromat, mixed $paymentMethods): ?JsonResponse
+    {
+        $laundromatPaymentMethods = $laundromat->getPaymentMethods();
+        $laundromatPaymentMethods?->clear();
+
+        if (!\is_array($paymentMethods)) {
+            return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
+        }
+
+        foreach ($paymentMethods as $paymentMethodName) {
+            if (!\is_string($paymentMethodName) || trim($paymentMethodName) === '') {
+                continue;
+            }
+
+            $normalizedPaymentMethodName = trim($paymentMethodName);
+            $paymentMethod = $this->paymentMethodRepository->findOneBy(['name' => $normalizedPaymentMethodName]);
+
+            if (!$paymentMethod instanceof PaymentMethod) {
+                return $this->jsonError(self::MESSAGE_INVALID_PAYMENT_METHOD, Response::HTTP_BAD_REQUEST);
+            }
+
+            $laundromatPaymentMethods?->add($paymentMethod);
         }
 
         return null;
