@@ -48,7 +48,7 @@ class LaundromatController extends AbstractApiController
 
         $filters = array_intersect_key(
             $request->query->all(),
-            array_flip(['query', 'address', 'services', 'paymentMethods', 'equipmentTypes']),
+            array_flip(['query', 'address', 'services', 'paymentMethods', 'equipmentTypes', 'openNow']),
         );
 
         $boundingBox = $this->snapBoundingBoxForCache(
@@ -159,8 +159,8 @@ class LaundromatController extends AbstractApiController
 
             'photos' => array_map(fn($media) => [
                 'id' => $media->getId(),
-                'url' => $media->getLocation(),
-                'name' => $media->getOriginalName(),
+                'url' => $media->getMedia()->getLocation(),
+                'name' => $media->getMedia()->getOriginalName(),
                 'description' => $media->getDescription(),
             ], $laundromat->getMedias()->toArray()),
 

@@ -9,6 +9,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Enum\UserStatus;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
+use App\Entity\Laundromat;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -284,6 +285,22 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setFavoriteLaundromats(?Collection $favoriteLaundromats): static
     {
         $this->favoriteLaundromats = $favoriteLaundromats;
+
+        return $this;
+    }
+
+    public function addFavoriteLaundromat(Laundromat $laundromat): static
+    {
+        if (!$this->favoriteLaundromats->contains($laundromat)) {
+            $this->favoriteLaundromats->add($laundromat);
+        }
+
+        return $this;
+    }
+
+    public function removeFavoriteLaundromat(Laundromat $laundromat): static
+    {
+        $this->favoriteLaundromats->removeElement($laundromat);
 
         return $this;
     }
