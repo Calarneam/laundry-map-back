@@ -413,6 +413,7 @@ class ProfessionalLaundryController extends AbstractApiController
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
+            'contactPhone' => $laundromat->getContactPhone(),
             'wiLineReference' => $laundromat->getWiLineReference(),
             'status' => $laundromat->getStatus()?->value,
             'hasPendingChanges' => $laundromat->hasPendingChanges(),

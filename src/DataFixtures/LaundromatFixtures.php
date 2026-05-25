@@ -65,6 +65,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $laundromat->setLogo($logo);
         $laundromat->setEstablishmentName('Laverie Express Paris 13');
         $laundromat->setContactEmail('contact@laverie-express-paris.fr');
+        $laundromat->setContactPhone('01 45 83 22 10');
         $laundromat->setDescription('Laverie self-service ouverte 7j/7. Machines à laver et sèche-linge haute capacité. Paiement CB, pièces ou espèces. Accès PMR.');
         $laundromat->setAddedDate($now);
         $laundromat->setUpdatedAt($now);

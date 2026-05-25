@@ -89,6 +89,7 @@ class LaundromatHydrator
         $laundromat->setEstablishmentName(trim($data['establishmentName']));
         $laundromat->setDescription(trim($data['description']));
         $laundromat->setContactEmail(isset($data['contactEmail']) && \is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
+        $laundromat->setContactPhone(isset($data['contactPhone']) && \is_string($data['contactPhone']) ? trim($data['contactPhone']) : null);
         $laundromat->setUpdatedAt($now);
 
         if ($laundromat->getAddedDate() === null) {

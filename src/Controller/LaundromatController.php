@@ -127,6 +127,7 @@ class LaundromatController extends AbstractApiController
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
+            'contactPhone' => $laundromat->getContactPhone(),
             'wiLineReference' => $laundromat->getWiLineReference(),
 
             'address' => $laundromat->getAddress() ? [
@@ -164,11 +165,23 @@ class LaundromatController extends AbstractApiController
                 'description' => $media->getDescription(),
             ], $laundromat->getMedias()->toArray()),
 
+            'averageRating' => (function () use ($laundromat): ?float {
+                $values = array_filter(
+                    array_map(fn($r) => $r->getRating(), $laundromat->getRatings()->toArray()),
+                    fn($v) => $v !== null,
+                );
+                return \count($values) > 0
+                    ? round(array_sum($values) / \count($values), 1)
+                    : null;
+            })(),
+
+            'ratingsCount' => $laundromat->getRatings()->count(),
+
             'ratings' => array_map(fn($rating) => [
                 'id' => $rating->getId(),
                 'rating' => $rating->getRating(),
                 'comment' => $rating->getComment(),
-                'createdAt' => $rating->getCreatedAt()->format('Y-m-d H:i:s'),
+                'createdAt' => $rating->getRatedAt()?->format('Y-m-d H:i:s'),
             ], $laundromat->getRatings()->toArray()),
         ];
     }
@@ -202,6 +215,8 @@ class LaundromatController extends AbstractApiController
 
         if (!empty($wi['phone'])) {
             $data['phone'] = $wi['phone'];
+        } elseif (!empty($data['contactPhone'])) {
+            $data['phone'] = $data['contactPhone'];
         }
         if (!empty($wi['logo'])) {
             $data['logoUrl'] = $wi['logo'];
