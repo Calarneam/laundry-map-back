@@ -49,6 +49,10 @@ class Laundromat
     #[Assert\Length(max: 255)]
     private ?string $contactEmail = null;
 
+    #[ORM\Column(length: 20, nullable: true)]
+    #[Assert\Length(max: 20)]
+    private ?string $contactPhone = null;
+
     #[ORM\Column(type: Types::TEXT)]
     #[Assert\Length(max: 570)]
     #[Assert\NotBlank]
@@ -198,6 +202,18 @@ class Laundromat
     public function setContactEmail(?string $contactEmail): static
     {
         $this->contactEmail = $contactEmail;
+
+        return $this;
+    }
+
+    public function getContactPhone(): ?string
+    {
+        return $this->contactPhone;
+    }
+
+    public function setContactPhone(?string $contactPhone): static
+    {
+        $this->contactPhone = $contactPhone;
 
         return $this;
     }

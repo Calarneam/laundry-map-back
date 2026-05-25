@@ -105,4 +105,28 @@ class UserController extends AbstractApiController
 
         return $this->json(['isFavorite' => $isFavorite], Response::HTTP_OK);
     }
+
+    #[Route('/reviews', name: 'get_reviews', methods: ['GET'])]
+    public function getReviews(
+        \App\Repository\LaundromatRatingRepository $ratingRepository,
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $ratings = $ratingRepository->findByUser($user);
+
+        return $this->json(array_map(fn($r) => [
+            'id'          => $r->getId(),
+            'rating'      => $r->getRating(),
+            'comment'     => $r->getComment(),
+            'ratedAt'     => $r->getRatedAt()?->format('Y-m-d'),
+            'commentedAt' => $r->getCommentedAt()?->format('Y-m-d'),
+            'laundromat'  => [
+                'id'   => $r->getLaundromat()->getId(),
+                'name' => $r->getLaundromat()->getEstablishmentName(),
+            ],
+        ], $ratings));
+    }
 }
