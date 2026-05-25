@@ -82,6 +82,7 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
                 'lat' => $lat,
                 'lng' => $lng,
                 'email' => $faker->unique()->safeEmail(),
+                'phone' => $faker->boolean(50) ? $faker->phoneNumber() : null,
                 'wiLine' => 40_000 + $i,
                 'description' => $this->truncateDescription($faker->realText(380)),
                 'addSecurite' => $faker->boolean(35),
@@ -126,6 +127,7 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
      *     lat: string,
      *     lng: string,
      *     email: string,
+     *     phone: string|null,
      *     wiLine: int,
      *     description: string,
      *     addSecurite: bool,
@@ -171,6 +173,9 @@ class SenlisLaundromatFixtures extends Fixture implements DependentFixtureInterf
         $laundromat->setLogo($logo);
         $laundromat->setEstablishmentName($site['name']);
         $laundromat->setContactEmail($site['email']);
+        if (!empty($site['phone'])) {
+            $laundromat->setContactPhone(mb_substr($site['phone'], 0, 20));
+        }
         $laundromat->setDescription($site['description']);
         $laundromat->setAddedDate($now);
         $laundromat->setUpdatedAt($now);

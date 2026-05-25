@@ -2,7 +2,9 @@
 
 namespace App\Repository;
 
+use App\Entity\Laundromat;
 use App\Entity\LaundromatRating;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
 
@@ -16,28 +18,46 @@ class LaundromatRatingRepository extends ServiceEntityRepository
         parent::__construct($registry, LaundromatRating::class);
     }
 
-    //    /**
-    //     * @return LaundromatRating[] Returns an array of LaundromatRating objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('l.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    public function findByLaundromat(Laundromat $laundromat, int $limit = 10, int $offset = 0): array
+    {
+        return $this->createQueryBuilder('r')
+            ->join('r.user', 'u')
+            ->addSelect('u')
+            ->where('r.laundromat = :laundromat')
+            ->andWhere('r.commentDeletedAt IS NULL')
+            ->setParameter('laundromat', $laundromat)
+            ->orderBy('COALESCE(r.commentedAt, r.ratedAt)', 'DESC')
+            ->setMaxResults($limit)
+            ->setFirstResult($offset)
+            ->getQuery()
+            ->getResult();
+    }
 
-    //    public function findOneBySomeField($value): ?LaundromatRating
-    //    {
-    //        return $this->createQueryBuilder('l')
-    //            ->andWhere('l.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    public function countByLaundromat(Laundromat $laundromat): int
+    {
+        return (int) $this->createQueryBuilder('r')
+            ->select('COUNT(r.id)')
+            ->where('r.laundromat = :laundromat')
+            ->andWhere('r.commentDeletedAt IS NULL')
+            ->setParameter('laundromat', $laundromat)
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findByUser(User $user): array
+    {
+        return $this->createQueryBuilder('r')
+            ->join('r.laundromat', 'l')
+            ->addSelect('l')
+            ->where('r.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('COALESCE(r.commentedAt, r.ratedAt)', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function findOneByLaundromatAndUser(Laundromat $laundromat, User $user): ?LaundromatRating
+    {
+        return $this->findOneBy(['laundromat' => $laundromat, 'user' => $user]);
+    }
 }
