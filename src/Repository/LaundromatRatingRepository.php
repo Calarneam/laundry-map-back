@@ -60,4 +60,23 @@ class LaundromatRatingRepository extends ServiceEntityRepository
     {
         return $this->findOneBy(['laundromat' => $laundromat, 'user' => $user]);
     }
+
+    /**
+     * @return array{averageRating: float|null, ratingCount: int}
+     */
+    public function getAggregatesForLaundromat(int $laundromatId): array
+    {
+        $result = $this->createQueryBuilder('r')
+            ->select('AVG(r.rating) AS averageRating, COUNT(r.id) AS ratingCount')
+            ->andWhere('r.laundromat = :laundromatId')
+            ->andWhere('r.commentDeletedAt IS NULL')
+            ->setParameter('laundromatId', $laundromatId)
+            ->getQuery()
+            ->getSingleResult();
+
+        return [
+            'averageRating' => $result['averageRating'] !== null ? round((float) $result['averageRating'], 2) : null,
+            'ratingCount' => (int) $result['ratingCount'],
+        ];
+    }
 }
