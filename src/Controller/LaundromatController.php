@@ -3,7 +3,9 @@
 namespace App\Controller;
 
 use App\Controller\AbstractApiController;
+use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Entity\Laundromat;
+use App\Entity\LaundromatExceptionalClosure;
 use App\Repository\LaundromatRatingRepository;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatNearbySerializer;
@@ -128,6 +130,32 @@ class LaundromatController extends AbstractApiController
             (int) $laundromat->getId(),
         );
 
+        $openingHours = array_map(fn($closure) => [
+            'day' => $closure->getDay()->value,
+            'startTime' => $closure->getStartTime()->format('H:i'),
+            'endTime' => $closure->getEndTime()->format('H:i'),
+        ], $laundromat->getClosures()->toArray());
+
+        $exceptionalClosures = array_map(
+            fn(LaundromatExceptionalClosure $closure) => $this->serializeExceptionalClosure($closure),
+            $laundromat->getExceptionalClosures()->toArray()
+        );
+
+        $activeClosure = $this->findActiveExceptionalClosure($laundromat);
+        if ($activeClosure instanceof LaundromatExceptionalClosure) {
+            if ($activeClosure->getType() === LaundromatExceptionalClosureType::FullClosure) {
+                $openingHours = [];
+            }
+
+            if ($activeClosure->getType() === LaundromatExceptionalClosureType::ModifiedHours) {
+                $openingHours = array_map(fn($slot) => [
+                    'day' => $slot->getDay()->value,
+                    'startTime' => $slot->getStartTime()->format('H:i'),
+                    'endTime' => $slot->getEndTime()->format('H:i'),
+                ], $activeClosure->getOpeningHours()->toArray());
+            }
+        }
+
         return [
             'id' => $laundromat->getId(),
             'establishmentName' => $laundromat->getEstablishmentName(),
@@ -156,11 +184,8 @@ class LaundromatController extends AbstractApiController
                 $laundromat->getServices()->toArray()
             ),
 
-            'openingHours' => array_map(fn($closure) => [
-                'day' => $closure->getDay()->value,
-                'startTime' => $closure->getStartTime()->format('H:i'),
-                'endTime' => $closure->getEndTime()->format('H:i'),
-            ], $laundromat->getClosures()->toArray()),
+            'openingHours' => $openingHours,
+            'exceptionalClosures' => $exceptionalClosures,
 
             'paymentMethods' => array_map(fn($paymentMethod) => $paymentMethod->getName(), $laundromat->getPaymentMethods()->toArray()),
 
@@ -280,6 +305,40 @@ class LaundromatController extends AbstractApiController
         }
 
         $data['isWiLineSynced'] = true;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function serializeExceptionalClosure(LaundromatExceptionalClosure $closure): array
+    {
+        return [
+            'id' => $closure->getId(),
+            'type' => $closure->getType()?->value,
+            'startDate' => $closure->getStartDate()?->format('Y-m-d\TH:i'),
+            'endDate' => $closure->getEndDate()?->format('Y-m-d\TH:i'),
+            'reason' => $closure->getReason(),
+            'openingHours' => array_map(fn($slot) => [
+                'day' => $slot->getDay()?->value,
+                'startTime' => $slot->getStartTime()?->format('H:i'),
+                'endTime' => $slot->getEndTime()?->format('H:i'),
+            ], $closure->getOpeningHours()->toArray()),
+        ];
+    }
+
+    private function findActiveExceptionalClosure(Laundromat $laundromat): ?LaundromatExceptionalClosure
+    {
+        $now = new \DateTimeImmutable();
+
+        foreach ($laundromat->getExceptionalClosures() as $closure) {
+            $startDate = $closure->getStartDate();
+            $endDate = $closure->getEndDate();
+            if ($startDate instanceof \DateTimeImmutable && $endDate instanceof \DateTimeImmutable && $startDate <= $now && $now <= $endDate) {
+                return $closure;
+            }
+        }
+
+        return null;
     }
 
     /**

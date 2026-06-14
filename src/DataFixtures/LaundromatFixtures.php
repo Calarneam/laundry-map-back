@@ -6,6 +6,7 @@ use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
 use App\Entity\Enum\GeolocationStatus;
+use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
@@ -101,7 +102,8 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $exceptional = new LaundromatExceptionalClosure();
         $exceptional->setLaundromat($laundromat);
         $exceptional->setStartDate($now->modify('+1 month'));
-        $exceptional->setEndDate($now->modify('+1 month'));
+        $exceptional->setEndDate($now->modify('+1 month +1 day'));
+        $exceptional->setType(LaundromatExceptionalClosureType::FullClosure);
         $exceptional->setReason('Travaux annuels');
         $exceptional->setAddedDate($now);
         $manager->persist($exceptional);

@@ -444,6 +444,8 @@ class LaundromatRepository extends ServiceEntityRepository
             ->addSelect('c')
             ->leftJoin('l.exceptionalClosures', 'ec')
             ->addSelect('ec')
+            ->leftJoin('ec.openingHours', 'eoh')
+            ->addSelect('eoh')
             ->leftJoin('l.address', 'a')
             ->addSelect('a')
             ->getQuery()

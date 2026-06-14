@@ -4,14 +4,22 @@ namespace App\Controller;
 
 use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Enum\ProfessionalStatus;
+use App\Entity\Enum\Day;
+use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatExceptionalClosure;
+use App\Entity\LaundromatExceptionalClosureSlot;
+use App\Entity\LaundromatRating;
 use App\Entity\Professional;
 use App\Entity\User;
 use App\Repository\LaundromatRepository;
+use App\Repository\LaundromatRatingRepository;
 use App\Service\LaundromatHydrator;
 use App\Service\WiLineApiService;
 use Doctrine\ORM\EntityManagerInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,8 +32,11 @@ class ProfessionalLaundryController extends AbstractApiController
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
         private readonly LaundromatRepository $laundromatRepository,
+        private readonly LaundromatRatingRepository $ratingRepository,
         private readonly LaundromatHydrator $laundromatHydrator,
         private readonly WiLineApiService $wiLineApiService,
+        private readonly MailerInterface $mailer,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('/wiline/{serial}', name: 'wiline_details', methods: ['GET'])]
@@ -241,12 +252,7 @@ class ProfessionalLaundryController extends AbstractApiController
 
             $data = [];
             foreach ($laundry->getExceptionalClosures() as $closure) {
-                $data[] = [
-                    'id' => $closure->getId(),
-                    'startDate' => $closure->getStartDate()?->format('Y-m-d'),
-                    'endDate' => $closure->getEndDate()?->format('Y-m-d'),
-                    'reason' => $closure->getReason(),
-                ];
+                $data[] = $this->serializeExceptionalClosure($closure);
             }
 
             return $this->json($data, Response::HTTP_OK);
@@ -264,15 +270,16 @@ class ProfessionalLaundryController extends AbstractApiController
                 return $laundry;
             }
 
-            $data = json_decode($request->getContent(), true);
-            $startDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($data['startDate'] ?? ''));
-            $endDate = \DateTimeImmutable::createFromFormat('Y-m-d', (string) ($data['endDate'] ?? ''));
+            $data = json_decode($request->getContent(), true) ?? [];
+            $startDate = $this->parseDateTime((string) ($data['startDate'] ?? ''));
+            $endDate = $this->parseDateTime((string) ($data['endDate'] ?? ''));
+            $type = $this->parseExceptionalClosureType($data['type'] ?? LaundromatExceptionalClosureType::FullClosure->value);
 
-            if (!$startDate instanceof \DateTimeImmutable || !$endDate instanceof \DateTimeImmutable) {
+            if (!$startDate instanceof \DateTimeImmutable || !$endDate instanceof \DateTimeImmutable || !$type instanceof LaundromatExceptionalClosureType) {
                 return $this->json(['error' => 'api.messages.invalid_date_format'], Response::HTTP_BAD_REQUEST);
             }
 
-            if ($startDate > $endDate) {
+            if ($startDate >= $endDate) {
                 return $this->json(['error' => 'api.messages.invalid_date_range'], Response::HTTP_BAD_REQUEST);
             }
 
@@ -280,20 +287,66 @@ class ProfessionalLaundryController extends AbstractApiController
             $closure->setLaundromat($laundry);
             $closure->setStartDate($startDate);
             $closure->setEndDate($endDate);
+            $closure->setType($type);
             $closure->setAddedDate(new \DateTimeImmutable());
             if (!empty($data['reason'])) {
                 $closure->setReason((string) $data['reason']);
             }
 
+            if ($type === LaundromatExceptionalClosureType::ModifiedHours) {
+                $openingHours = $data['openingHours'] ?? null;
+                if (!is_array($openingHours) || $openingHours === []) {
+                    return $this->json(['error' => 'api.messages.invalid_laundromat_closure'], Response::HTTP_BAD_REQUEST);
+                }
+
+                $slotError = $this->syncExceptionalClosureSlots($closure, $openingHours, new \DateTimeImmutable());
+                if ($slotError instanceof JsonResponse) {
+                    return $slotError;
+                }
+            }
+
             $this->entityManager->persist($closure);
             $this->entityManager->flush();
 
-            return $this->json([
-                'id' => $closure->getId(),
-                'startDate' => $closure->getStartDate()->format('Y-m-d'),
-                'endDate' => $closure->getEndDate()->format('Y-m-d'),
-                'reason' => $closure->getReason(),
-            ], Response::HTTP_CREATED);
+            $this->notifyFavoriteUsersAboutExceptionalClosure($laundry, $closure);
+
+            return $this->json($this->serializeExceptionalClosure($closure), Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/{laundromatId}/ratings/{ratingId}/response', name: 'ratings_response_create', methods: ['POST'])]
+    public function createRatingResponse(int $laundromatId, int $ratingId, Request $request): JsonResponse
+    {
+        return $this->upsertRatingResponse($laundromatId, $ratingId, $request, false);
+    }
+
+    #[Route('/{laundromatId}/ratings/{ratingId}/response', name: 'ratings_response_update', methods: ['PATCH'])]
+    public function updateRatingResponse(int $laundromatId, int $ratingId, Request $request): JsonResponse
+    {
+        return $this->upsertRatingResponse($laundromatId, $ratingId, $request, true);
+    }
+
+    #[Route('/{laundromatId}/ratings/{ratingId}/response', name: 'ratings_response_delete', methods: ['DELETE'])]
+    public function deleteRatingResponse(int $laundromatId, int $ratingId): JsonResponse
+    {
+        try {
+            $laundry = $this->getOwnedLaundry($laundromatId);
+            if ($laundry instanceof JsonResponse) {
+                return $laundry;
+            }
+
+            $rating = $this->ratingRepository->find($ratingId);
+            if (!$rating instanceof LaundromatRating || $rating->getLaundromat()?->getId() !== $laundromatId) {
+                return $this->json(['error' => 'api.messages.rating_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $rating->setResponse(null);
+            $rating->setRespondedAt(null);
+            $this->entityManager->flush();
+
+            return $this->json(null, Response::HTTP_NO_CONTENT);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -413,6 +466,11 @@ class ProfessionalLaundryController extends AbstractApiController
             ];
         }
 
+        $exceptionalClosures = [];
+        foreach ($laundromat->getExceptionalClosures() ?? [] as $closure) {
+            $exceptionalClosures[] = $this->serializeExceptionalClosure($closure);
+        }
+
         return [
             'id' => $laundromat->getId(),
             'establishmentName' => $laundromat->getEstablishmentName(),
@@ -436,6 +494,7 @@ class ProfessionalLaundryController extends AbstractApiController
             'machines' => $machines,
             'openingHours' => $openingHours,
             'isOpenTwentyFourSeven' => $this->isOpenTwentyFourSeven($openingHours),
+            'exceptionalClosures' => $exceptionalClosures,
             'photos' => $photos,
         ];
     }
@@ -458,5 +517,216 @@ class ProfessionalLaundryController extends AbstractApiController
         }
 
         return true;
+    }
+
+    private function upsertRatingResponse(int $laundromatId, int $ratingId, Request $request, bool $isUpdate): JsonResponse
+    {
+        try {
+            $laundry = $this->getOwnedLaundry($laundromatId);
+            if ($laundry instanceof JsonResponse) {
+                return $laundry;
+            }
+
+            $rating = $this->ratingRepository->find($ratingId);
+            if (!$rating instanceof LaundromatRating || $rating->getLaundromat()?->getId() !== $laundromatId) {
+                return $this->json(['error' => 'api.messages.rating_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $currentResponse = $rating->getResponse();
+            if (!$isUpdate && $currentResponse !== null) {
+                return $this->json(['error' => 'api.messages.rating_response_already_exists'], Response::HTTP_CONFLICT);
+            }
+
+            if ($isUpdate && $currentResponse === null) {
+                return $this->json(['error' => 'api.messages.rating_response_not_found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $data = json_decode($request->getContent(), true) ?? [];
+            $response = trim((string) ($data['response'] ?? ''));
+            if ($response === '' || mb_strlen($response) > 500) {
+                return $this->json(['error' => 'api.messages.comment_too_long'], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $rating->setResponse($response);
+            $rating->setRespondedAt(new \DateTimeImmutable());
+            $this->entityManager->flush();
+
+            $this->notifyRatingAuthorAboutResponse($rating, $isUpdate);
+
+            return $this->json($this->serializeRating($rating), $isUpdate ? Response::HTTP_OK : Response::HTTP_CREATED);
+        } catch (\Exception $e) {
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * @param array<int, mixed> $openingHours
+     */
+    private function syncExceptionalClosureSlots(LaundromatExceptionalClosure $closure, array $openingHours, \DateTimeImmutable $now): ?JsonResponse
+    {
+        foreach ($openingHours as $openingHour) {
+            if (!is_array($openingHour)) {
+                return $this->json(['error' => 'api.messages.invalid_laundromat_closure'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $day = isset($openingHour['day']) ? Day::tryFrom((string) $openingHour['day']) : null;
+            $startTime = $this->parseTime((string) ($openingHour['startTime'] ?? ''));
+            $endTime = $this->parseTime((string) ($openingHour['endTime'] ?? ''));
+
+            if (!$day instanceof Day || !$startTime instanceof \DateTimeImmutable || !$endTime instanceof \DateTimeImmutable || $startTime >= $endTime) {
+                return $this->json(['error' => 'api.messages.invalid_laundromat_closure'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $slot = new LaundromatExceptionalClosureSlot();
+            $slot->setExceptionalClosure($closure);
+            $slot->setDay($day);
+            $slot->setStartTime($startTime);
+            $slot->setEndTime($endTime);
+            $slot->setAddedDate($now);
+            $slot->setUpdatedAt($now);
+            $this->entityManager->persist($slot);
+        }
+
+        return null;
+    }
+
+    private function serializeExceptionalClosure(LaundromatExceptionalClosure $closure): array
+    {
+        $openingHours = [];
+        foreach ($closure->getOpeningHours() as $slot) {
+            $openingHours[] = [
+                'id' => $slot->getId(),
+                'day' => $slot->getDay()?->value,
+                'startTime' => $slot->getStartTime()?->format('H:i'),
+                'endTime' => $slot->getEndTime()?->format('H:i'),
+            ];
+        }
+
+        return [
+            'id' => $closure->getId(),
+            'type' => $closure->getType()?->value,
+            'startDate' => $closure->getStartDate()?->format('Y-m-d\TH:i'),
+            'endDate' => $closure->getEndDate()?->format('Y-m-d\TH:i'),
+            'reason' => $closure->getReason(),
+            'openingHours' => $openingHours,
+        ];
+    }
+
+    private function serializeRating(LaundromatRating $rating): array
+    {
+        $user = $rating->getUser();
+
+        return [
+            'id' => $rating->getId(),
+            'rating' => $rating->getRating(),
+            'comment' => $rating->getComment(),
+            'ratedAt' => $rating->getRatedAt()?->format('Y-m-d'),
+            'commentedAt' => $rating->getCommentedAt()?->format('Y-m-d'),
+            'response' => $rating->getResponse(),
+            'respondedAt' => $rating->getRespondedAt()?->format('Y-m-d'),
+            'user' => $user ? [
+                'id' => $user->getId(),
+                'firstName' => $user->getFirstName(),
+                'lastName' => $user->getLastName(),
+            ] : null,
+        ];
+    }
+
+    private function parseExceptionalClosureType(mixed $type): ?LaundromatExceptionalClosureType
+    {
+        if (!is_string($type) || $type === '') {
+            return null;
+        }
+
+        return LaundromatExceptionalClosureType::tryFrom($type);
+    }
+
+    private function parseDateTime(string $value): ?\DateTimeImmutable
+    {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return null;
+        }
+
+        foreach (['Y-m-d\TH:i', \DateTimeInterface::ATOM, 'Y-m-d H:i', 'Y-m-d'] as $format) {
+            $date = \DateTimeImmutable::createFromFormat($format, $normalized);
+            if ($date instanceof \DateTimeImmutable) {
+                return $date;
+            }
+        }
+
+        try {
+            return new \DateTimeImmutable($normalized);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    private function parseTime(string $value): ?\DateTimeImmutable
+    {
+        $normalized = trim($value);
+        if ($normalized === '') {
+            return null;
+        }
+
+        return \DateTimeImmutable::createFromFormat('H:i', $normalized) ?: null;
+    }
+
+    private function notifyRatingAuthorAboutResponse(LaundromatRating $rating, bool $isUpdate): void
+    {
+        $author = $rating->getUser();
+        $laundromat = $rating->getLaundromat();
+        if (!$author instanceof User || $author->getEmail() === null || !$laundromat instanceof Laundromat) {
+            return;
+        }
+
+        try {
+            $email = (new Email())
+                ->to($author->getEmail())
+                ->subject($isUpdate ? 'Votre avis a recu une reponse mise a jour' : 'Votre avis a recu une reponse')
+                ->text(sprintf(
+                    "Bonjour,\n\nLe professionnel de la laverie %s a %s a votre avis.\n\nCordialement,\nLaundry Map",
+                    $laundromat->getEstablishmentName(),
+                    $isUpdate ? 'mis a jour sa reponse' : 'repondu'
+                ));
+
+            $this->mailer->send($email);
+        } catch (\Throwable $e) {
+            $this->logger->error('Failed to send rating response email: '.$e->getMessage());
+        }
+    }
+
+    private function notifyFavoriteUsersAboutExceptionalClosure(Laundromat $laundromat, LaundromatExceptionalClosure $closure): void
+    {
+        $users = $this->entityManager->getRepository(User::class)
+            ->createQueryBuilder('u')
+            ->join('u.favoriteLaundromats', 'l')
+            ->andWhere('l = :laundromat')
+            ->setParameter('laundromat', $laundromat)
+            ->getQuery()
+            ->getResult();
+
+        foreach ($users as $user) {
+            if (!$user instanceof User || $user->getEmail() === null) {
+                continue;
+            }
+
+            try {
+                $email = (new Email())
+                    ->to($user->getEmail())
+                    ->subject('Mise a jour exceptionnelle de votre laverie favorite')
+                    ->text(sprintf(
+                        "Bonjour,\n\nLa laverie %s a declare une exception du %s au %s.%s\n\nCordialement,\nLaundry Map",
+                        $laundromat->getEstablishmentName(),
+                        $closure->getStartDate()?->format('d/m/Y H:i'),
+                        $closure->getEndDate()?->format('d/m/Y H:i'),
+                        $closure->getReason() ? "\nMotif : ".$closure->getReason() : ''
+                    ));
+
+                $this->mailer->send($email);
+            } catch (\Throwable $e) {
+                $this->logger->error('Failed to send exceptional closure email: '.$e->getMessage());
+            }
+        }
     }
 }

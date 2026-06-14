@@ -10,6 +10,7 @@ use App\Entity\Laundromat;
 use App\Entity\LaundromatInteractionHistory;
 use App\Entity\Professional;
 use App\Entity\ProfessionalInteractionHistory;
+use App\Repository\LaundromatRatingReportRepository;
 use App\Repository\LaundromatRepository;
 use App\Repository\ProfessionalRepository;
 use App\Repository\UserRepository;
@@ -29,6 +30,7 @@ class AdminController extends AbstractApiController
         private readonly UserRepository $userRepository,
         private readonly ProfessionalRepository $professionalRepository,
         private readonly LaundromatRepository $laundromatRepository,
+        private readonly LaundromatRatingReportRepository $ratingReportRepository,
         private readonly ValidatorInterface $validator,
         private readonly LaundromatHydrator $laundromatHydrator,
     ) {}
@@ -39,11 +41,12 @@ class AdminController extends AbstractApiController
         try {
             $pendingPros = $this->userRepository->countPendingProfessionals();
             $pendingLaundries = $this->laundromatRepository->countPendingLaundromats();
+            $reports = $this->ratingReportRepository->countOpenReports();
 
             return $this->json([
                 'pendingPros' => $pendingPros,
                 'pendingLaundries' => $pendingLaundries,
-                'reports' => 0,
+                'reports' => $reports,
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
