@@ -69,7 +69,9 @@ class RatingController extends AbstractApiController
 
         $data    = json_decode($request->getContent(), true) ?? [];
         $rating  = isset($data['rating']) ? (int) $data['rating'] : null;
-        $comment = isset($data['comment']) ? trim((string) $data['comment']) : null;
+        $comment = isset($data['description'])
+            ? trim((string) $data['description'])
+            : (isset($data['comment']) ? trim((string) $data['comment']) : null);
 
         if ($rating === null || $rating < 1 || $rating > 5) {
             return $this->json(['error' => 'api.messages.invalid_rating'], Response::HTTP_UNPROCESSABLE_ENTITY);
