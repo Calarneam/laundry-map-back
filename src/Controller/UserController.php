@@ -48,6 +48,27 @@ class UserController extends AbstractApiController
         );
     }
 
+    #[Route('/favorites/{laundromatId}', name: 'add_favorite', methods: ['POST'])]
+    public function addFavorite(int $laundromatId, EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $laundromat = $this->laundromatRepository->find($laundromatId);
+        if (!$laundromat) {
+            return $this->json(['error' => 'api.messages.laundromat_not_found'], Response::HTTP_NOT_FOUND);
+        }
+
+        if (!$user->getFavoriteLaundromats()->contains($laundromat)) {
+            $user->addFavoriteLaundromat($laundromat);
+            $entityManager->flush();
+        }
+
+        return $this->json(['message' => 'api.messages.favorite_added'], Response::HTTP_OK);
+    }
+
     #[Route('/favorites/{laundromatId}', name: 'remove_favorite', methods: ['DELETE'])]
     public function removeFavorite(int $laundromatId, EntityManagerInterface $entityManager): JsonResponse
     {
@@ -65,5 +86,47 @@ class UserController extends AbstractApiController
         $entityManager->flush();
 
         return $this->json(['message' => 'api.messages.favorite_removed'], Response::HTTP_OK);
+    }
+
+    #[Route('/favorites/{laundromatId}/check', name: 'check_favorite', methods: ['GET'])]
+    public function checkFavorite(int $laundromatId): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['isFavorite' => false], Response::HTTP_OK);
+        }
+
+        $laundromat = $this->laundromatRepository->find($laundromatId);
+        if (!$laundromat) {
+            return $this->json(['isFavorite' => false], Response::HTTP_OK);
+        }
+
+        $isFavorite = $user->getFavoriteLaundromats()->contains($laundromat);
+
+        return $this->json(['isFavorite' => $isFavorite], Response::HTTP_OK);
+    }
+
+    #[Route('/reviews', name: 'get_reviews', methods: ['GET'])]
+    public function getReviews(
+        \App\Repository\LaundromatRatingRepository $ratingRepository,
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'api.messages.profile_forbidden'], Response::HTTP_FORBIDDEN);
+        }
+
+        $ratings = $ratingRepository->findByUser($user);
+
+        return $this->json(array_map(fn($r) => [
+            'id'          => $r->getId(),
+            'rating'      => $r->getRating(),
+            'comment'     => $r->getComment(),
+            'ratedAt'     => $r->getRatedAt()?->format('Y-m-d'),
+            'commentedAt' => $r->getCommentedAt()?->format('Y-m-d'),
+            'laundromat'  => [
+                'id'   => $r->getLaundromat()->getId(),
+                'name' => $r->getLaundromat()->getEstablishmentName(),
+            ],
+        ], $ratings));
     }
 }

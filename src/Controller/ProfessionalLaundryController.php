@@ -397,6 +397,11 @@ class ProfessionalLaundryController extends AbstractApiController
             $services[] = $service->getName();
         }
 
+        $paymentMethods = [];
+        foreach ($laundromat->getPaymentMethods() ?? [] as $paymentMethod) {
+            $paymentMethods[] = $paymentMethod->getName();
+        }
+
         $photos = [];
         foreach ($laundromat->getMedias() ?? [] as $mediaRelation) {
             $media = $mediaRelation->getMedia();
@@ -413,6 +418,7 @@ class ProfessionalLaundryController extends AbstractApiController
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
+            'contactPhone' => $laundromat->getContactPhone(),
             'wiLineReference' => $laundromat->getWiLineReference(),
             'status' => $laundromat->getStatus()?->value,
             'hasPendingChanges' => $laundromat->hasPendingChanges(),
@@ -426,6 +432,7 @@ class ProfessionalLaundryController extends AbstractApiController
                 'fullAddress' => $address?->getAddress(),
             ],
             'services' => $services,
+            'paymentMethods' => $paymentMethods,
             'machines' => $machines,
             'openingHours' => $openingHours,
             'isOpenTwentyFourSeven' => $this->isOpenTwentyFourSeven($openingHours),
