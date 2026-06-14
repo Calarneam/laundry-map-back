@@ -2,7 +2,10 @@
 
 namespace App\Entity;
 
+use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Repository\LaundromatExceptionalClosureRepository;
+use Doctrine\Common\Collections\ArrayCollection;
+use Doctrine\Common\Collections\Collection;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -20,21 +23,35 @@ class LaundromatExceptionalClosure
     #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
     private ?\DateTimeImmutable $startDate = null;
 
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
     private ?\DateTimeImmutable $endDate = null;
+
+    #[ORM\Column(enumType: LaundromatExceptionalClosureType::class, length: 50)]
+    #[Assert\NotNull]
+    #[Assert\Type(LaundromatExceptionalClosureType::class)]
+    private ?LaundromatExceptionalClosureType $type = null;
 
     #[ORM\Column(length: 255, nullable: true)]
     #[Assert\Length(max: 255)]
     private ?string $reason = null;
 
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
     private ?\DateTimeImmutable $addedDate = null;
+
+    #[ORM\OneToMany(targetEntity: LaundromatExceptionalClosureSlot::class, mappedBy: 'exceptionalClosure', cascade: ['persist', 'remove'])]
+    #[Assert\NotNull]
+    private Collection $openingHours;
+
+    public function __construct()
+    {
+        $this->openingHours = new ArrayCollection();
+    }
 
     public function getId(): ?int
     {
@@ -89,6 +106,18 @@ class LaundromatExceptionalClosure
         return $this;
     }
 
+    public function getType(): ?LaundromatExceptionalClosureType
+    {
+        return $this->type;
+    }
+
+    public function setType(LaundromatExceptionalClosureType $type): static
+    {
+        $this->type = $type;
+
+        return $this;
+    }
+
     public function getAddedDate(): ?\DateTimeImmutable
     {
         return $this->addedDate;
@@ -97,6 +126,18 @@ class LaundromatExceptionalClosure
     public function setAddedDate(\DateTimeImmutable $addedDate): static
     {
         $this->addedDate = $addedDate;
+
+        return $this;
+    }
+
+    public function getOpeningHours(): Collection
+    {
+        return $this->openingHours;
+    }
+
+    public function setOpeningHours(Collection $openingHours): static
+    {
+        $this->openingHours = $openingHours;
 
         return $this;
     }

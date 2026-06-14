@@ -13,6 +13,16 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
  */
 abstract class AbstractApiController extends AbstractController
 {
+    protected function getAdministrator(): Administrator
+    {
+        $user = parent::getUser();
+        if (!$user instanceof Administrator) {
+            throw new \Exception('Administrator not found');
+        }
+
+        return $user;
+    }
+
     protected function getProfessional(): Professional
     {
         $user = parent::getUser();
