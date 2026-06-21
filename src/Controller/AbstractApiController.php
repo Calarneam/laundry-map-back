@@ -13,6 +13,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
  */
 abstract class AbstractApiController extends AbstractController
 {
+<<<<<<< Updated upstream
+
+=======
     protected function getAdministrator(): Administrator
     {
         $user = parent::getUser();
@@ -32,4 +35,5 @@ abstract class AbstractApiController extends AbstractController
         
         return $user->getProfessional();
     }
+>>>>>>> Stashed changes
 }

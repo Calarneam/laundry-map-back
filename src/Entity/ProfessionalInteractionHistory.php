@@ -22,7 +22,11 @@ class ProfessionalInteractionHistory
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Professional::class)]
+<<<<<<< Updated upstream
+    #[ORM\JoinColumn(nullable: false)]
+=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+>>>>>>> Stashed changes
     #[Assert\NotNull]
     private ?Professional $professional = null;
 
@@ -38,6 +42,10 @@ class ProfessionalInteractionHistory
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
+<<<<<<< Updated upstream
+    #[Assert\DateTime]
+=======
+>>>>>>> Stashed changes
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int

@@ -2,14 +2,12 @@
 
 namespace App\Controller;
 
-use App\Controller\AbstractApiController;
-use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Entity\Laundromat;
-use App\Entity\LaundromatExceptionalClosure;
-use App\Repository\LaundromatRatingRepository;
 use App\Repository\LaundromatRepository;
 use App\Service\LaundromatNearbySerializer;
+use App\Service\LaundromatSerializer;
 use App\Service\WiLineApiService;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,10 +23,11 @@ class LaundromatController extends AbstractApiController
 
     public function __construct(
         private readonly LaundromatRepository $laundromatRepository,
-        private readonly LaundromatRatingRepository $laundromatRatingRepository,
         private readonly LaundromatNearbySerializer $laundromatNearbySerializer,
+        private readonly LaundromatSerializer $laundromatSerializer,
         private readonly CacheInterface $cache,
         private readonly WiLineApiService $wiLineApiService,
+        private readonly LoggerInterface $logger,
     ) {}
 
     #[Route('/search', name: 'search', methods: ['GET'])]
@@ -100,11 +99,11 @@ class LaundromatController extends AbstractApiController
     {
         $laundromat = $this->laundromatRepository->findWithDetails($id);
 
-        if (!$laundromat) {
+        if (!$laundromat instanceof Laundromat) {
             return $this->json(['error' => 'api.messages.laundromat_not_found'], Response::HTTP_NOT_FOUND);
         }
 
-        $data = $this->serializeLaundromat($laundromat);
+        $data = $this->laundromatSerializer->serializeDetail($laundromat);
         $data['isWiLineSynced'] = false;
 
         $wiLineReference = $laundromat->getWiLineReference();
@@ -114,7 +113,11 @@ class LaundromatController extends AbstractApiController
                 if ($wiLineDetails !== []) {
                     $this->mergeWiLineDetails($data, $wiLineDetails);
                 }
-            } catch (\Throwable) {
+            } catch (\Throwable $exception) {
+                $this->logger->warning('Wi-Line sync failed for laundromat {id}: {message}', [
+                    'id' => $id,
+                    'message' => $exception->getMessage(),
+                ]);
             }
         }
 
@@ -122,144 +125,56 @@ class LaundromatController extends AbstractApiController
     }
 
     /**
-     * @return array<string, mixed>
-     */
-    private function serializeLaundromat(Laundromat $laundromat): array
-    {
-        $ratingStats = $this->laundromatRatingRepository->getAggregatesForLaundromat(
-            (int) $laundromat->getId(),
-        );
-
-        $openingHours = array_map(fn($closure) => [
-            'day' => $closure->getDay()->value,
-            'startTime' => $closure->getStartTime()->format('H:i'),
-            'endTime' => $closure->getEndTime()->format('H:i'),
-        ], $laundromat->getClosures()->toArray());
-
-        $exceptionalClosures = array_map(
-            fn(LaundromatExceptionalClosure $closure) => $this->serializeExceptionalClosure($closure),
-            $laundromat->getExceptionalClosures()->toArray()
-        );
-
-        $activeClosure = $this->findActiveExceptionalClosure($laundromat);
-        if ($activeClosure instanceof LaundromatExceptionalClosure) {
-            if ($activeClosure->getType() === LaundromatExceptionalClosureType::FullClosure) {
-                $openingHours = [];
-            }
-
-            if ($activeClosure->getType() === LaundromatExceptionalClosureType::ModifiedHours) {
-                $openingHours = array_map(fn($slot) => [
-                    'day' => $slot->getDay()->value,
-                    'startTime' => $slot->getStartTime()->format('H:i'),
-                    'endTime' => $slot->getEndTime()->format('H:i'),
-                ], $activeClosure->getOpeningHours()->toArray());
-            }
-        }
-
-        return [
-            'id' => $laundromat->getId(),
-            'establishmentName' => $laundromat->getEstablishmentName(),
-            'description' => $laundromat->getDescription(),
-            'contactEmail' => $laundromat->getContactEmail(),
-            'contactPhone' => $laundromat->getContactPhone(),
-            'wiLineReference' => $laundromat->getWiLineReference(),
-
-            'address' => $laundromat->getAddress() ? [
-                'fullAddress' => $laundromat->getAddress()->getAddress(),
-                'street' => $laundromat->getAddress()->getStreet(),
-                'zipCode' => $laundromat->getAddress()->getZipCode(),
-                'city' => $laundromat->getAddress()->getCity(),
-                'country' => $laundromat->getAddress()->getCountry(),
-            ] : null,
-
-            'equipments' => array_map(fn($equipment) => [
-                'type' => $equipment->getType()->value,
-                'capacity' => $equipment->getCapacity(),
-                'price' => $equipment->getPrice(),
-                'duration' => $equipment->getDuration(),
-            ], $laundromat->getEquipments()->toArray()),
-
-            'services' => array_map(
-                fn($service) => $service->getName(),
-                $laundromat->getServices()->toArray()
-            ),
-
-            'openingHours' => $openingHours,
-            'exceptionalClosures' => $exceptionalClosures,
-
-            'paymentMethods' => array_map(fn($paymentMethod) => $paymentMethod->getName(), $laundromat->getPaymentMethods()->toArray()),
-
-            'photos' => array_map(fn($media) => [
-                'id' => $media->getId(),
-                'url' => $media->getMedia()->getLocation(),
-                'name' => $media->getMedia()->getOriginalName(),
-                'description' => $media->getDescription(),
-            ], $laundromat->getMedias()->toArray()),
-
-            'averageRating' => $ratingStats['averageRating'],
-            'ratingCount' => $ratingStats['ratingCount'],
-
-            'ratings' => array_map(fn($rating) => [
-                'id' => $rating->getId(),
-                'rating' => $rating->getRating(),
-                'comment' => $rating->getComment(),
-                'createdAt' => $rating->getRatedAt()?->format('Y-m-d H:i:s'),
-            ], $laundromat->getRatings()->toArray()),
-        ];
-    }
-
-    /**
      * @param array<string, mixed> $data
-     * @param array<string, mixed> $wi
-     * @return array<string, mixed>
+     * @param array<string, mixed> $wiLineDetails
      */
-    private function mergeWiLineDetails(array &$data, array $wi): void
+    private function mergeWiLineDetails(array &$data, array $wiLineDetails): void
     {
-        if (!empty($wi['name'])) {
-            $data['establishmentName'] = $wi['name'];
+        if (!empty($wiLineDetails['name'])) {
+            $data['establishmentName'] = $wiLineDetails['name'];
         }
 
-        if (!empty($wi['address']) || !empty($wi['city'])) {
+        if (!empty($wiLineDetails['address']) || !empty($wiLineDetails['city'])) {
             $data['address'] = [
                 'fullAddress' => trim(sprintf(
                     '%s, %s %s, %s',
-                    $wi['address'] ?? '',
-                    $wi['postal_code'] ?? '',
-                    $wi['city'] ?? '',
-                    $wi['country'] ?? ''
+                    $wiLineDetails['address'] ?? '',
+                    $wiLineDetails['postal_code'] ?? '',
+                    $wiLineDetails['city'] ?? '',
+                    $wiLineDetails['country'] ?? ''
                 ), ', '),
-                'street' => $wi['address'] ?? null,
-                'zipCode' => isset($wi['postal_code']) ? (int) $wi['postal_code'] : null,
-                'city' => $wi['city'] ?? null,
-                'country' => $wi['country'] ?? null,
+                'street' => $wiLineDetails['address'] ?? null,
+                'zipCode' => isset($wiLineDetails['postal_code']) ? (int) $wiLineDetails['postal_code'] : null,
+                'city' => $wiLineDetails['city'] ?? null,
+                'country' => $wiLineDetails['country'] ?? null,
             ];
         }
 
-        if (!empty($wi['phone'])) {
-            $data['phone'] = $wi['phone'];
+        if (!empty($wiLineDetails['phone'])) {
+            $data['phone'] = $wiLineDetails['phone'];
         } elseif (!empty($data['contactPhone'])) {
             $data['phone'] = $data['contactPhone'];
         }
-        if (!empty($wi['logo'])) {
-            $data['logoUrl'] = $wi['logo'];
+        if (!empty($wiLineDetails['logo'])) {
+            $data['logoUrl'] = $wiLineDetails['logo'];
         }
 
         $paymentMethods = [];
-        foreach (['coin', 'bill', 'card', 'fidelity'] as $pm) {
-            if (!empty($wi["{$pm}_accepted"])) {
-                $paymentMethods[] = $pm;
+        foreach (['coin', 'bill', 'card', 'fidelity'] as $paymentMethodKey) {
+            if (!empty($wiLineDetails["{$paymentMethodKey}_accepted"])) {
+                $paymentMethods[] = $paymentMethodKey;
             }
         }
         if ($paymentMethods !== []) {
             $data['paymentMethods'] = $paymentMethods;
         }
 
-        if (!empty($wi['opening_hours']) && \is_array($wi['opening_hours'])) {
+        if (!empty($wiLineDetails['opening_hours']) && \is_array($wiLineDetails['opening_hours'])) {
             $validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
             $hours = [];
-            foreach ($wi['opening_hours'] as $day => $ranges) {
-                $normalized = strtolower((string) $day);
-                if (!\in_array($normalized, $validDays, true) || !\is_array($ranges)) {
+            foreach ($wiLineDetails['opening_hours'] as $day => $ranges) {
+                $normalizedDay = strtolower((string) $day);
+                if (!\in_array($normalizedDay, $validDays, true) || !\is_array($ranges)) {
                     continue;
                 }
                 foreach ($ranges as $range) {
@@ -267,7 +182,7 @@ class LaundromatController extends AbstractApiController
                         continue;
                     }
                     $hours[] = [
-                        'day' => $normalized,
+                        'day' => $normalizedDay,
                         'startTime' => substr((string) $range['open'], 0, 5),
                         'endTime' => substr((string) $range['close'], 0, 5),
                     ];
@@ -276,9 +191,9 @@ class LaundromatController extends AbstractApiController
             $data['openingHours'] = $hours;
         }
 
-        if (!empty($wi['machines']) && \is_array($wi['machines'])) {
+        if (!empty($wiLineDetails['machines']) && \is_array($wiLineDetails['machines'])) {
             $equipments = [];
-            foreach ($wi['machines'] as $machine) {
+            foreach ($wiLineDetails['machines'] as $machine) {
                 $category = $machine['category_text'] ?? null;
                 if (!\in_array($category, ['WASH', 'DRY'], true)) {
                     continue;
@@ -305,40 +220,6 @@ class LaundromatController extends AbstractApiController
         }
 
         $data['isWiLineSynced'] = true;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function serializeExceptionalClosure(LaundromatExceptionalClosure $closure): array
-    {
-        return [
-            'id' => $closure->getId(),
-            'type' => $closure->getType()?->value,
-            'startDate' => $closure->getStartDate()?->format('Y-m-d\TH:i'),
-            'endDate' => $closure->getEndDate()?->format('Y-m-d\TH:i'),
-            'reason' => $closure->getReason(),
-            'openingHours' => array_map(fn($slot) => [
-                'day' => $slot->getDay()?->value,
-                'startTime' => $slot->getStartTime()?->format('H:i'),
-                'endTime' => $slot->getEndTime()?->format('H:i'),
-            ], $closure->getOpeningHours()->toArray()),
-        ];
-    }
-
-    private function findActiveExceptionalClosure(Laundromat $laundromat): ?LaundromatExceptionalClosure
-    {
-        $now = new \DateTimeImmutable();
-
-        foreach ($laundromat->getExceptionalClosures() as $closure) {
-            $startDate = $closure->getStartDate();
-            $endDate = $closure->getEndDate();
-            if ($startDate instanceof \DateTimeImmutable && $endDate instanceof \DateTimeImmutable && $startDate <= $now && $now <= $endDate) {
-                return $closure;
-            }
-        }
-
-        return null;
     }
 
     /**

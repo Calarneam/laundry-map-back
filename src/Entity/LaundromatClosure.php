@@ -27,18 +27,34 @@ class LaundromatClosure
 
     #[ORM\Column]
     #[Assert\NotNull]
+<<<<<<< Updated upstream
+    #[Assert\DateTime]
+=======
+>>>>>>> Stashed changes
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
+<<<<<<< Updated upstream
+    #[Assert\DateTime]
+=======
+>>>>>>> Stashed changes
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
+<<<<<<< Updated upstream
+    #[Assert\DateTime]
+=======
+>>>>>>> Stashed changes
     private ?\DateTimeImmutable $startTime = null;
 
     #[ORM\Column]
     #[Assert\NotNull]
+<<<<<<< Updated upstream
+    #[Assert\DateTime]
+=======
+>>>>>>> Stashed changes
     private ?\DateTimeImmutable $endTime = null;
 
     public function getId(): ?int

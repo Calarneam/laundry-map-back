@@ -13,13 +13,21 @@ class LaundromatRatingReport
 {
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: LaundromatRating::class)]
+<<<<<<< Updated upstream
+    #[ORM\JoinColumn(nullable: false)]
+=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+>>>>>>> Stashed changes
     #[Assert\NotNull]
     private LaundromatRating $rating;
 
     #[ORM\Id]
     #[ORM\ManyToOne(targetEntity: User::class)]
+<<<<<<< Updated upstream
+    #[ORM\JoinColumn(nullable: false)]
+=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
+>>>>>>> Stashed changes
     #[Assert\NotNull]
     private User $user;
 

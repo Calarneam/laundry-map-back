@@ -17,10 +17,8 @@ class ServiceController extends AbstractController
     public function list(): JsonResponse
     {
         try {
-            $services = $this->serviceRepository->findBy([], ['name' => 'ASC']);
-
             return $this->json([
-                'services' => array_values(array_map(static fn($service): string => (string) $service->getName(), $services)),
+                'services' => $this->serviceRepository->findAllNames(),
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);

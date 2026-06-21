@@ -3,18 +3,18 @@
 namespace App\Controller;
 
 use App\Entity\Enum\LaundromatStatus;
-use App\Entity\Enum\ProfessionalStatus;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\LaundromatExceptionalClosureType;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatExceptionalClosure;
 use App\Entity\LaundromatExceptionalClosureSlot;
 use App\Entity\LaundromatRating;
-use App\Entity\Professional;
 use App\Entity\User;
 use App\Repository\LaundromatRepository;
 use App\Repository\LaundromatRatingRepository;
 use App\Service\LaundromatHydrator;
+use App\Service\LaundromatSerializer;
+use App\Service\RatingSerializer;
 use App\Service\WiLineApiService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -34,6 +34,8 @@ class ProfessionalLaundryController extends AbstractApiController
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatRatingRepository $ratingRepository,
         private readonly LaundromatHydrator $laundromatHydrator,
+        private readonly LaundromatSerializer $laundromatSerializer,
+        private readonly RatingSerializer $ratingSerializer,
         private readonly WiLineApiService $wiLineApiService,
         private readonly MailerInterface $mailer,
         private readonly LoggerInterface $logger,
@@ -56,44 +58,10 @@ class ProfessionalLaundryController extends AbstractApiController
                     continue;
                 }
 
-                if (($machine['out_of_order'] ?? false) === true) {
-                    continue;
+                $normalizedMachine = $this->normalizeWiLineMachine($machine, $warnings);
+                if ($normalizedMachine !== null) {
+                    $normalizedMachines[] = $normalizedMachine;
                 }
-
-                $rawTypeName = trim((string) ($machine['type_name'] ?? ''));
-                $normalizedTypeName = mb_strtolower($rawTypeName);
-                $type = null;
-
-                if (str_starts_with($normalizedTypeName, 'machine')) {
-                    $type = 'washer';
-                } elseif (str_starts_with($normalizedTypeName, 'séchoir') || str_starts_with($normalizedTypeName, 'sechoir')) {
-                    $type = 'dryer';
-                }
-
-                if ($type === null) {
-                    $warnings[] = 'api.messages.wiline_unsupported_machine_category';
-                    continue;
-                }
-
-                preg_match('/(\d+)\s*kg/i', $rawTypeName, $capacityMatch);
-                $capacity = isset($capacityMatch[1]) ? (int) $capacityMatch[1] : 8;
-
-                $rawPrice = (float) ($machine['price'] ?? 0);
-                $priceInEuros = $rawPrice > 0 ? round($rawPrice / 100, 2) : 0.0;
-
-                $rawDuration = (int) ($machine['duration'] ?? 0);
-                $duration = $rawDuration > 120 ? (int) round($rawDuration / 60) : $rawDuration;
-                if ($duration <= 0) {
-                    $duration = 1;
-                }
-
-                $normalizedMachines[] = [
-                    'type' => $type,
-                    'capacity' => $capacity,
-                    'price' => $priceInEuros,
-                    'duration' => $duration,
-                    'equipmentReference' => isset($machine['machine_number']) ? (int) $machine['machine_number'] : null,
-                ];
             }
 
             return $this->json([
@@ -118,13 +86,14 @@ class ProfessionalLaundryController extends AbstractApiController
     {
         try {
             $professional = $this->getProfessional();
+            $laundromats = $this->laundromatRepository->findByProfessionalWithDetails($professional);
 
-            $laundromats = $this->laundromatRepository->findBy(
-                ['professional' => $professional, 'deletedAt' => null],
-                ['addedDate' => 'DESC'],
-            );
+            $serialized = [];
+            foreach ($laundromats as $laundromat) {
+                $serialized[] = $this->laundromatSerializer->serializeForProfessional($laundromat);
+            }
 
-            return $this->json(array_map($this->serializeLaundry(...), $laundromats), Response::HTTP_OK);
+            return $this->json($serialized, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -154,9 +123,11 @@ class ProfessionalLaundryController extends AbstractApiController
             $this->entityManager->persist($laundromat);
             $this->entityManager->flush();
 
+            $laundromatWithDetails = $this->laundromatRepository->findWithDetails((int) $laundromat->getId());
+
             return $this->json([
                 'message' => 'api.messages.laundry_created',
-                'laundry' => $this->serializeLaundry($laundromat),
+                'laundry' => $this->laundromatSerializer->serializeForProfessional($laundromatWithDetails ?? $laundromat),
             ], Response::HTTP_CREATED);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -167,12 +138,17 @@ class ProfessionalLaundryController extends AbstractApiController
     public function show(int $id): JsonResponse
     {
         try {
-            $laundry = $this->getOwnedLaundry($id);
-            if ($laundry instanceof JsonResponse) {
-                return $laundry;
+            $ownedLaundryResponse = $this->getOwnedLaundry($id);
+            if ($ownedLaundryResponse instanceof JsonResponse) {
+                return $ownedLaundryResponse;
             }
 
-            return $this->json($this->serializeLaundry($laundry), Response::HTTP_OK);
+            $laundromat = $this->laundromatRepository->findWithDetails($id);
+
+            return $this->json(
+                $this->laundromatSerializer->serializeForProfessional($laundromat ?? $ownedLaundryResponse),
+                Response::HTTP_OK,
+            );
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -199,9 +175,11 @@ class ProfessionalLaundryController extends AbstractApiController
                 $laundry->setUpdatedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
 
+                $laundromatWithDetails = $this->laundromatRepository->findWithDetails($id);
+
                 return $this->json([
                     'message' => 'api.messages.laundry_pending_review',
-                    'laundry' => $this->serializeLaundry($laundry),
+                    'laundry' => $this->laundromatSerializer->serializeForProfessional($laundromatWithDetails ?? $laundry),
                 ], Response::HTTP_OK);
             }
 
@@ -214,9 +192,11 @@ class ProfessionalLaundryController extends AbstractApiController
             $laundry->setPendingChanges(null);
             $this->entityManager->flush();
 
+            $laundromatWithDetails = $this->laundromatRepository->findWithDetails($id);
+
             return $this->json([
                 'message' => 'api.messages.laundry_updated',
-                'laundry' => $this->serializeLaundry($laundry),
+                'laundry' => $this->laundromatSerializer->serializeForProfessional($laundromatWithDetails ?? $laundry),
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -250,9 +230,10 @@ class ProfessionalLaundryController extends AbstractApiController
                 return $laundry;
             }
 
+            $laundromat = $this->laundromatRepository->findWithDetails($id);
             $data = [];
-            foreach ($laundry->getExceptionalClosures() as $closure) {
-                $data[] = $this->serializeExceptionalClosure($closure);
+            foreach (($laundromat ?? $laundry)->getExceptionalClosures() as $closure) {
+                $data[] = $this->laundromatSerializer->serializeExceptionalClosureForProfessional($closure);
             }
 
             return $this->json($data, Response::HTTP_OK);
@@ -310,7 +291,10 @@ class ProfessionalLaundryController extends AbstractApiController
 
             $this->notifyFavoriteUsersAboutExceptionalClosure($laundry, $closure);
 
-            return $this->json($this->serializeExceptionalClosure($closure), Response::HTTP_CREATED);
+            return $this->json(
+                $this->laundromatSerializer->serializeExceptionalClosureForProfessional($closure),
+                Response::HTTP_CREATED,
+            );
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -375,6 +359,54 @@ class ProfessionalLaundryController extends AbstractApiController
         }
     }
 
+    /**
+     * @param array<string, mixed> $machine
+     * @param list<string>         $warnings
+     *
+     * @return array<string, mixed>|null
+     */
+    private function normalizeWiLineMachine(array $machine, array &$warnings): ?array
+    {
+        if (($machine['out_of_order'] ?? false) === true) {
+            return null;
+        }
+
+        $rawTypeName = trim((string) ($machine['type_name'] ?? ''));
+        $normalizedTypeName = mb_strtolower($rawTypeName);
+
+        $type = match (true) {
+            str_starts_with($normalizedTypeName, 'machine') => 'washer',
+            str_starts_with($normalizedTypeName, 'séchoir') || str_starts_with($normalizedTypeName, 'sechoir') => 'dryer',
+            default => null,
+        };
+
+        if ($type === null) {
+            $warnings[] = 'api.messages.wiline_unsupported_machine_category';
+
+            return null;
+        }
+
+        preg_match('/(\d+)\s*kg/i', $rawTypeName, $capacityMatch);
+        $capacity = isset($capacityMatch[1]) ? (int) $capacityMatch[1] : 8;
+
+        $rawPrice = (float) ($machine['price'] ?? 0);
+        $priceInEuros = $rawPrice > 0 ? round($rawPrice / 100, 2) : 0.0;
+
+        $rawDuration = (int) ($machine['duration'] ?? 0);
+        $duration = $rawDuration > 120 ? (int) round($rawDuration / 60) : $rawDuration;
+        if ($duration <= 0) {
+            $duration = 1;
+        }
+
+        return [
+            'type' => $type,
+            'capacity' => $capacity,
+            'price' => $priceInEuros,
+            'duration' => $duration,
+            'equipmentReference' => isset($machine['machine_number']) ? (int) $machine['machine_number'] : null,
+        ];
+    }
+
     private function getOwnedLaundry(int $id): Laundromat|JsonResponse
     {
         $professional = $this->getProfessional();
@@ -415,110 +447,6 @@ class ProfessionalLaundryController extends AbstractApiController
         return array_values(array_filter($photos, static fn (mixed $photo): bool => $photo instanceof UploadedFile));
     }
 
-    private function serializeLaundry(Laundromat $laundromat): array
-    {
-        $address = $laundromat->getAddress();
-
-        $machines = [];
-        foreach ($laundromat->getEquipments() ?? [] as $equipment) {
-            $machines[] = [
-                'id' => $equipment->getId(),
-                'name' => $equipment->getName(),
-                'nameTranslationParams' => [
-                    'capacity' => $equipment->getCapacity(),
-                ],
-                'type' => $equipment->getType()?->value,
-                'capacity' => $equipment->getCapacity(),
-                'price' => $equipment->getPrice(),
-                'duration' => $equipment->getDuration(),
-                'equipmentReference' => $equipment->getEquipmentReference(),
-            ];
-        }
-
-        $openingHours = [];
-        foreach ($laundromat->getClosures() ?? [] as $closure) {
-            $openingHours[] = [
-                'id' => $closure->getId(),
-                'day' => $closure->getDay()?->value,
-                'startTime' => $closure->getStartTime()?->format('H:i'),
-                'endTime' => $closure->getEndTime()?->format('H:i'),
-            ];
-        }
-
-        $services = [];
-        foreach ($laundromat->getServices() ?? [] as $service) {
-            $services[] = $service->getName();
-        }
-
-        $paymentMethods = [];
-        foreach ($laundromat->getPaymentMethods() ?? [] as $paymentMethod) {
-            $paymentMethods[] = $paymentMethod->getName();
-        }
-
-        $photos = [];
-        foreach ($laundromat->getMedias() ?? [] as $mediaRelation) {
-            $media = $mediaRelation->getMedia();
-            $photos[] = [
-                'id' => $mediaRelation->getId(),
-                'url' => $media?->getLocation(),
-                'name' => $media?->getOriginalName(),
-                'description' => $mediaRelation->getDescription(),
-            ];
-        }
-
-        $exceptionalClosures = [];
-        foreach ($laundromat->getExceptionalClosures() ?? [] as $closure) {
-            $exceptionalClosures[] = $this->serializeExceptionalClosure($closure);
-        }
-
-        return [
-            'id' => $laundromat->getId(),
-            'establishmentName' => $laundromat->getEstablishmentName(),
-            'description' => $laundromat->getDescription(),
-            'contactEmail' => $laundromat->getContactEmail(),
-            'contactPhone' => $laundromat->getContactPhone(),
-            'wiLineReference' => $laundromat->getWiLineReference(),
-            'status' => $laundromat->getStatus()?->value,
-            'hasPendingChanges' => $laundromat->hasPendingChanges(),
-            'addedDate' => $laundromat->getAddedDate()?->format('Y-m-d'),
-            'updatedAt' => $laundromat->getUpdatedAt()?->format('Y-m-d'),
-            'address' => [
-                'street' => $address?->getStreet(),
-                'zipCode' => $address?->getZipCode(),
-                'city' => $address?->getCity(),
-                'country' => $address?->getCountry(),
-                'fullAddress' => $address?->getAddress(),
-            ],
-            'services' => $services,
-            'paymentMethods' => $paymentMethods,
-            'machines' => $machines,
-            'openingHours' => $openingHours,
-            'isOpenTwentyFourSeven' => $this->isOpenTwentyFourSeven($openingHours),
-            'exceptionalClosures' => $exceptionalClosures,
-            'photos' => $photos,
-        ];
-    }
-
-    private function isOpenTwentyFourSeven(array $openingHours): bool
-    {
-        if (count($openingHours) !== 7) {
-            return false;
-        }
-
-        foreach ($openingHours as $openingHour) {
-            if (
-                !is_array($openingHour)
-                || !isset($openingHour['startTime'], $openingHour['endTime'])
-                || $openingHour['startTime'] !== '00:00'
-                || $openingHour['endTime'] !== '23:59'
-            ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     private function upsertRatingResponse(int $laundromatId, int $ratingId, Request $request, bool $isUpdate): JsonResponse
     {
         try {
@@ -553,7 +481,10 @@ class ProfessionalLaundryController extends AbstractApiController
 
             $this->notifyRatingAuthorAboutResponse($rating, $isUpdate);
 
-            return $this->json($this->serializeRating($rating), $isUpdate ? Response::HTTP_OK : Response::HTTP_CREATED);
+            return $this->json(
+                $this->ratingSerializer->serializePublic($rating),
+                $isUpdate ? Response::HTTP_OK : Response::HTTP_CREATED,
+            );
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
@@ -588,48 +519,6 @@ class ProfessionalLaundryController extends AbstractApiController
         }
 
         return null;
-    }
-
-    private function serializeExceptionalClosure(LaundromatExceptionalClosure $closure): array
-    {
-        $openingHours = [];
-        foreach ($closure->getOpeningHours() as $slot) {
-            $openingHours[] = [
-                'id' => $slot->getId(),
-                'day' => $slot->getDay()?->value,
-                'startTime' => $slot->getStartTime()?->format('H:i'),
-                'endTime' => $slot->getEndTime()?->format('H:i'),
-            ];
-        }
-
-        return [
-            'id' => $closure->getId(),
-            'type' => $closure->getType()?->value,
-            'startDate' => $closure->getStartDate()?->format('Y-m-d\TH:i'),
-            'endDate' => $closure->getEndDate()?->format('Y-m-d\TH:i'),
-            'reason' => $closure->getReason(),
-            'openingHours' => $openingHours,
-        ];
-    }
-
-    private function serializeRating(LaundromatRating $rating): array
-    {
-        $user = $rating->getUser();
-
-        return [
-            'id' => $rating->getId(),
-            'rating' => $rating->getRating(),
-            'comment' => $rating->getComment(),
-            'ratedAt' => $rating->getRatedAt()?->format('Y-m-d'),
-            'commentedAt' => $rating->getCommentedAt()?->format('Y-m-d'),
-            'response' => $rating->getResponse(),
-            'respondedAt' => $rating->getRespondedAt()?->format('Y-m-d'),
-            'user' => $user ? [
-                'id' => $user->getId(),
-                'firstName' => $user->getFirstName(),
-                'lastName' => $user->getLastName(),
-            ] : null,
-        ];
     }
 
     private function parseExceptionalClosureType(mixed $type): ?LaundromatExceptionalClosureType

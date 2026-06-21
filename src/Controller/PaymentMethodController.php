@@ -17,10 +17,8 @@ class PaymentMethodController extends AbstractController
     public function list(): JsonResponse
     {
         try {
-            $paymentMethods = $this->paymentMethodRepository->findBy([], ['name' => 'ASC']);
-
             return $this->json([
-                'paymentMethods' => array_values(array_map(static fn($method): string => (string) $method->getName(), $paymentMethods)),
+                'paymentMethods' => $this->paymentMethodRepository->findAllNames(),
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
