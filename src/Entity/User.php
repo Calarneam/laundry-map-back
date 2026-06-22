@@ -9,10 +9,7 @@ use Symfony\Component\Security\Core\User\UserInterface;
 use App\Entity\Enum\UserStatus;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\Common\Collections\ArrayCollection;
-<<<<<<< Updated upstream
-=======
 use App\Entity\Laundromat;
->>>>>>> Stashed changes
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[ORM\Entity(repositoryClass: UserRepository::class)]
@@ -29,21 +26,12 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Assert\NotBlank]
     private ?string $email = null;
 
-<<<<<<< Updated upstream
-    #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Length(max: 255)]
-    private ?string $lastName = null;
-
-    #[ORM\Column(length: 255, nullable: true)]
-    #[Assert\Length(max: 255)]
-=======
     #[ORM\Column(length: 50, nullable: true)]
     #[Assert\Length(max: 50)]
     private ?string $lastName = null;
 
     #[ORM\Column(length: 50, nullable: true)]
     #[Assert\Length(max: 50)]
->>>>>>> Stashed changes
     private ?string $firstName = null;
 
     #[ORM\Column(length: 255, nullable: true)]

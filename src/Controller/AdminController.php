@@ -2,13 +2,6 @@
 
 namespace App\Controller;
 
-<<<<<<< Updated upstream
-use App\Entity\Enum\ProfessionalInteractionHistoryAction;
-use App\Entity\Enum\ProfessionalStatus;
-use App\Entity\ProfessionalInteractionHistory;
-use App\Repository\UserRepository;
-use App\Repository\ProfessionalRepository;
-=======
 use App\Entity\Enum\LaundromatInteractionHistoryAction;
 use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Enum\ProfessionalInteractionHistoryAction;
@@ -22,7 +15,6 @@ use App\Repository\LaundromatRepository;
 use App\Repository\ProfessionalRepository;
 use App\Repository\UserRepository;
 use App\Service\LaundromatHydrator;
->>>>>>> Stashed changes
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -37,21 +29,6 @@ class AdminController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly UserRepository $userRepository,
         private readonly ProfessionalRepository $professionalRepository,
-<<<<<<< Updated upstream
-        private readonly ValidatorInterface $validator,
-    ) {}
-
-    #[Route('/pros/pending', name: 'pros_pending', methods: ['GET'])]
-    public function listPendingProfessionals(): JsonResponse {
-        try {
-            $professionalPendings = $this->userRepository->findPendingProfessionals();
-            
-            return $this->json($professionalPendings, Response::HTTP_OK);
-        } catch (\Exception $e) {
-            return $this->json([
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-=======
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatRatingReportRepository $ratingReportRepository,
         private readonly ValidatorInterface $validator,
@@ -85,56 +62,10 @@ class AdminController extends AbstractApiController
             return $this->json($professionalPendings, Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
->>>>>>> Stashed changes
         }
     }
 
     #[Route('/pros/{id}/status', name: 'pros_update_status', methods: ['PATCH'])]
-<<<<<<< Updated upstream
-    public function updateProfessionalStatus(
-        int $id,
-        Request $request,
-    ): JsonResponse {
-        try {
-            $data = json_decode($request->getContent(), true);
-
-            if (!isset($data['status'])) {
-                return $this->json([
-                    'error' => 'api.messages.missing_fields'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            $status = $data['status'];
-
-            if (!in_array($status, ['validated', 'refused'], true)) {
-                return $this->json([
-                    'error' => 'api.messages.invalid_status'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            if ($status === 'refused' && (empty($data['reason']) || trim($data['reason']) === '')) {
-                return $this->json([
-                    'error' => 'api.messages.reason_required_for_refusal'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            $professional = $this->professionalRepository->find($id);
-
-            if (!$professional) {
-                return $this->json([
-                    'error' => 'api.messages.professional_not_found'
-                ], Response::HTTP_NOT_FOUND);
-            }
-
-            if ($professional->getStatus() !== ProfessionalStatus::Pending) {
-                return $this->json([
-                    'error' => 'api.messages.professional_not_pending'
-                ], Response::HTTP_BAD_REQUEST);
-            }
-
-            $admin = $this->getUser();
-
-=======
     public function updateProfessionalStatus(int $id, Request $request): JsonResponse
     {
         try {
@@ -158,7 +89,6 @@ class AdminController extends AbstractApiController
                 return $this->json(['error' => 'api.messages.professional_not_pending'], Response::HTTP_BAD_REQUEST);
             }
 
->>>>>>> Stashed changes
             if ($status === 'validated') {
                 $professional->setStatus(ProfessionalStatus::Validated);
                 $professional->setValidationDate(new \DateTimeImmutable());
@@ -171,11 +101,7 @@ class AdminController extends AbstractApiController
             }
 
             $history = new ProfessionalInteractionHistory();
-<<<<<<< Updated upstream
-            $history->setAdministrator($admin);
-=======
             $history->setAdministrator($this->getUser());
->>>>>>> Stashed changes
             $history->setProfessional($professional);
             $history->setAction($action);
             $history->setActionReason($reason);
@@ -183,14 +109,7 @@ class AdminController extends AbstractApiController
 
             $errors = $this->validator->validate($history);
             if (count($errors) > 0) {
-<<<<<<< Updated upstream
-                $errorsString = (string) $errors;
-                return $this->json([
-                    'error' => $errorsString
-                ], Response::HTTP_BAD_REQUEST);
-=======
                 return $this->json(['error' => (string) $errors], Response::HTTP_BAD_REQUEST);
->>>>>>> Stashed changes
             }
 
             $this->entityManager->persist($history);
@@ -202,11 +121,6 @@ class AdminController extends AbstractApiController
                     : 'api.messages.professional_refused',
             ], Response::HTTP_OK);
         } catch (\Exception $e) {
-<<<<<<< Updated upstream
-            return $this->json([
-                'error' => $e->getMessage()
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
-=======
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
@@ -299,7 +213,6 @@ class AdminController extends AbstractApiController
             return $this->json(['message' => $message], Response::HTTP_OK);
         } catch (\Exception $e) {
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
->>>>>>> Stashed changes
         }
     }
 }

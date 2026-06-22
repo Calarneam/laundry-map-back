@@ -12,7 +12,6 @@ use App\Entity\Enum\GeolocationStatus;
 use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Controller\AbstractApiController;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -34,11 +33,8 @@ class AuthController extends AbstractApiController
         private readonly ProfessionalRepository $professionalRepository,
         private readonly EntityManagerInterface $entityManager,
         private readonly ValidatorInterface $validator,
-<<<<<<< Updated upstream
-=======
         private readonly MailerInterface $mailer,
         private readonly LoggerInterface $logger,
->>>>>>> Stashed changes
     ) {}
 
     #[Route('/register', name: 'register', methods: ['POST'])]
@@ -87,8 +83,6 @@ class AuthController extends AbstractApiController
 
             $this->entityManager->persist($user);
             $this->entityManager->flush();
-<<<<<<< Updated upstream
-=======
 
             try {
                 $email = (new Email())
@@ -108,7 +102,6 @@ class AuthController extends AbstractApiController
             } catch (\Exception $e) {
                 $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
             }
->>>>>>> Stashed changes
 
             return $this->json([
                 'message' => 'api.messages.user_created_successfully',
@@ -225,8 +218,6 @@ class AuthController extends AbstractApiController
 
             $this->entityManager->persist($user);
             $this->entityManager->flush();
-<<<<<<< Updated upstream
-=======
 
             try {
                 $email = (new Email())
@@ -246,7 +237,6 @@ class AuthController extends AbstractApiController
             } catch (\Exception $e) {
                 $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
             }
->>>>>>> Stashed changes
 
             return $this->json([
                 'message' => 'api.messages.professional_pending_validation',
@@ -259,8 +249,6 @@ class AuthController extends AbstractApiController
         }
     }
 
-<<<<<<< Updated upstream
-=======
     #[Route('/forgot-password', name: 'forgot_password', methods: ['POST'])]
     public function forgotPassword(Request $request): JsonResponse
     {
@@ -272,7 +260,6 @@ class AuthController extends AbstractApiController
 
         $user = $this->userRepository->findOneBy(['email' => $data['email']]);
 
-        // Always return success to prevent email enumeration
         if (!$user) {
             return $this->json(['message' => 'api.messages.reset_email_sent']);
         }
@@ -462,7 +449,6 @@ class AuthController extends AbstractApiController
 </html>';
     }
 
->>>>>>> Stashed changes
     #[Route('/login', name: 'login', methods: ['POST'])]
     public function login(): JsonResponse
     {
@@ -516,11 +502,8 @@ class AuthController extends AbstractApiController
             'lastName' => $current->getLastName(),
             'email' => $current->getUserIdentifier(),
             'roles' => $current->getRoles(),
-<<<<<<< Updated upstream
-=======
             'hasPassword' => $current->getPassword() !== null,
             'hasOauth' => $current->getOauthId() !== null,
->>>>>>> Stashed changes
         ];
 
         $professional = $current->getProfessional();

@@ -22,11 +22,7 @@ class LaundromatInteractionHistory
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: Laundromat::class)]
-<<<<<<< Updated upstream
-    #[ORM\JoinColumn(nullable: false)]
-=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
->>>>>>> Stashed changes
     #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 

@@ -23,23 +23,12 @@ class LaundromatExceptionalClosure
     #[Assert\NotNull]
     private ?Laundromat $laundromat = null;
 
-<<<<<<< Updated upstream
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
-    #[Assert\NotNull]
-    #[Assert\DateTime]
-    private ?\DateTimeImmutable $startDate = null;
-
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
-    #[Assert\NotNull]
-    #[Assert\DateTime]
-=======
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
     private ?\DateTimeImmutable $startDate = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
->>>>>>> Stashed changes
     private ?\DateTimeImmutable $endDate = null;
 
     #[ORM\Column(enumType: LaundromatExceptionalClosureType::class, length: 50)]
@@ -51,14 +40,8 @@ class LaundromatExceptionalClosure
     #[Assert\Length(max: 255)]
     private ?string $reason = null;
 
-<<<<<<< Updated upstream
-    #[ORM\Column(type: Types::DATE_IMMUTABLE)]
-    #[Assert\NotNull]
-    #[Assert\DateTime]
-=======
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     #[Assert\NotNull]
->>>>>>> Stashed changes
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\OneToMany(targetEntity: LaundromatExceptionalClosureSlot::class, mappedBy: 'exceptionalClosure', cascade: ['persist', 'remove'])]

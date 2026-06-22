@@ -19,11 +19,7 @@ class Laundromat
     private ?int $id = null;
 
     #[ORM\ManyToOne(targetEntity: Professional::class, inversedBy: 'laundromats')]
-<<<<<<< Updated upstream
-    #[ORM\JoinColumn(nullable: false)]
-=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
->>>>>>> Stashed changes
     #[Assert\NotNull]
     private ?Professional $professional = null;
 
@@ -36,12 +32,7 @@ class Laundromat
     private ?Address $address = null;
 
     #[ORM\OneToOne(targetEntity: Media::class, cascade: ['persist', 'remove'])]
-<<<<<<< Updated upstream
-    #[ORM\JoinColumn(nullable: false)]
-    #[Assert\NotNull]
-=======
     #[ORM\JoinColumn(nullable: true)]
->>>>>>> Stashed changes
     private ?Media $logo = null;
 
     #[ORM\Column(length: 50, enumType: LaundromatStatus::class)]
@@ -63,28 +54,16 @@ class Laundromat
     private ?string $contactPhone = null;
 
     #[ORM\Column(type: Types::TEXT)]
-<<<<<<< Updated upstream
-    #[Assert\Length(max: 255)]
-=======
     #[Assert\Length(max: 570)]
->>>>>>> Stashed changes
     #[Assert\NotBlank]
     private ?string $description = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-<<<<<<< Updated upstream
-    #[Assert\DateTime]
-=======
->>>>>>> Stashed changes
     private ?\DateTimeImmutable $addedDate = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-<<<<<<< Updated upstream
-    #[Assert\DateTime]
-=======
->>>>>>> Stashed changes
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]

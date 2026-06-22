@@ -21,11 +21,7 @@ class UserInteractionHistory
     private ?Administrator $administrator = null;
 
     #[ORM\ManyToOne(targetEntity: User::class)]
-<<<<<<< Updated upstream
-    #[ORM\JoinColumn(nullable: false)]
-=======
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
->>>>>>> Stashed changes
     #[Assert\NotNull]
     private ?User $user = null;
 

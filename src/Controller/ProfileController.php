@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Controller\AbstractApiController;
 use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Enum\UserType;
@@ -19,19 +18,11 @@ use function count;
 #[Route('/api/user/profile', name: 'api_profile_')]
 class ProfileController extends AbstractApiController
 {
-<<<<<<< Updated upstream
-
-=======
->>>>>>> Stashed changes
     public function __construct(
         private readonly EntityManagerInterface $entityManager,
     ) {}
 
-<<<<<<< Updated upstream
-    #[Route('/', name: 'get', methods: ['GET'])]
-=======
     #[Route('', name: 'get', methods: ['GET'])]
->>>>>>> Stashed changes
     public function getProfile(): JsonResponse
     {
         $currentUser = $this->getUser();
@@ -54,12 +45,9 @@ class ProfileController extends AbstractApiController
             'lastName' => $currentUser->getLastName(),
             'email' => $currentUser->getUserIdentifier(),
             'roles' => $currentUser->getRoles(),
-<<<<<<< Updated upstream
-=======
             'hasPassword' => $currentUser->getPassword() !== null,
             'hasOauth' => $currentUser->getOauthId() !== null,
             'avatarUrl' => $currentUser->getAvatarUrl(),
->>>>>>> Stashed changes
         ];
 
         $professional = $currentUser->getProfessional();
@@ -102,8 +90,6 @@ class ProfileController extends AbstractApiController
         ], Response::HTTP_OK);
     }
 
-<<<<<<< Updated upstream
-=======
     #[Route('/set-password', name: 'set_password', methods: ['PATCH'])]
     public function setPassword(
         Request $request,
@@ -132,7 +118,6 @@ class ProfileController extends AbstractApiController
         return $this->json(['message' => 'api.messages.password_changed'], Response::HTTP_OK);
     }
 
->>>>>>> Stashed changes
     #[Route('/fullname', name: 'update_fullname', methods: ['PATCH'])]
     public function updateFullname(
         Request $request,
@@ -156,15 +141,12 @@ class ProfileController extends AbstractApiController
         }
 
         $this->entityManager->flush();
-        
+
         return $this->json([
             'message' => 'api.messages.fullname_updated',
         ], Response::HTTP_OK);
     }
 
-<<<<<<< Updated upstream
-    #[Route('/', name: 'delete', methods: ['DELETE'])]
-=======
     #[Route('/avatar', name: 'upload_avatar', methods: ['POST'])]
     public function uploadAvatar(Request $request): JsonResponse
     {
@@ -193,7 +175,6 @@ class ProfileController extends AbstractApiController
             mkdir($uploadDir, 0755, true);
         }
 
-        // Remove old avatar file if exists
         $oldUrl = $currentUser->getAvatarUrl();
         if ($oldUrl) {
             $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $oldUrl;
@@ -216,11 +197,10 @@ class ProfileController extends AbstractApiController
     }
 
     #[Route('', name: 'delete', methods: ['DELETE'])]
->>>>>>> Stashed changes
     public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();
-        
+
         $this->entityManager->remove($currentUser);
         $this->entityManager->flush();
 
@@ -247,5 +227,4 @@ class ProfileController extends AbstractApiController
 
         return $response;
     }
-
 }

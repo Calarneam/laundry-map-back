@@ -13,16 +13,11 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Core\Exception\AccountStatusException;
-<<<<<<< Updated upstream
-use Symfony\Component\Validator\Validator\ValidatorInterface;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
-=======
 use Symfony\Component\Mailer\MailerInterface;
 use Symfony\Component\Mime\Email;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Psr\Log\LoggerInterface;
->>>>>>> Stashed changes
 
 #[Route('/api/auth/google', name: 'api_auth_google_')]
 class GoogleAuthController extends AbstractApiController
@@ -34,13 +29,6 @@ class GoogleAuthController extends AbstractApiController
         private readonly UserChecker $userChecker,
         private readonly ValidatorInterface $validator,
         private readonly UserRepository $userRepository,
-<<<<<<< Updated upstream
-    ) {}
-
-    #[Route('', name: 'redirect', methods: ['GET'])]
-    public function redirectToGoogle(): RedirectResponse
-    {
-=======
         private readonly MailerInterface $mailer,
         private readonly LoggerInterface $logger,
     ) {}
@@ -50,7 +38,6 @@ class GoogleAuthController extends AbstractApiController
     {
         $intent = $request->query->get('intent', '');
 
->>>>>>> Stashed changes
         $params = http_build_query([
             'client_id' => $this->getParameter('app.google_client_id'),
             'redirect_uri' => $this->getParameter('app.google_redirect_uri'),
@@ -58,10 +45,7 @@ class GoogleAuthController extends AbstractApiController
             'scope' => 'openid email profile',
             'access_type' => 'offline',
             'prompt' => 'consent',
-<<<<<<< Updated upstream
-=======
             'state' => $intent,
->>>>>>> Stashed changes
         ]);
 
         return new RedirectResponse('https://accounts.google.com/o/oauth2/v2/auth?' . $params);
@@ -78,7 +62,6 @@ class GoogleAuthController extends AbstractApiController
         }
 
         try {
-            // 1. Échanger le code contre un access_token
             $tokenResponse = $this->httpClient->request('POST', 'https://oauth2.googleapis.com/token', [
                 'body' => [
                     'code' => $code,
@@ -92,7 +75,6 @@ class GoogleAuthController extends AbstractApiController
             $tokenData = $tokenResponse->toArray();
             $accessToken = $tokenData['access_token'];
 
-            // 2. Récupérer le profil utilisateur Google
             $userInfoResponse = $this->httpClient->request('GET', 'https://www.googleapis.com/oauth2/v3/userinfo', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $accessToken,
@@ -105,7 +87,6 @@ class GoogleAuthController extends AbstractApiController
             $firstName = $userInfo['given_name'] ?? null;
             $lastName = $userInfo['family_name'] ?? null;
 
-            // 3. Trouver ou créer l'utilisateur
             $user = $this->userRepository->findOneBy(['email' => $email]);
 
             if (!$user) {
@@ -124,8 +105,6 @@ class GoogleAuthController extends AbstractApiController
                 }
 
                 $this->entityManager->persist($user);
-<<<<<<< Updated upstream
-=======
 
                 try {
                     $welcomeEmail = (new Email())
@@ -142,7 +121,6 @@ class GoogleAuthController extends AbstractApiController
                 } catch (\Exception $e) {
                     $this->logger->error('Failed to send welcome email: ' . $e->getMessage());
                 }
->>>>>>> Stashed changes
             } else {
                 if (!$user->getOauthId()) {
                     $user->setOauthId($googleId);
@@ -158,25 +136,19 @@ class GoogleAuthController extends AbstractApiController
                 return new RedirectResponse($frontendUrl . '/login?error=account_restricted');
             }
 
-            // 4. Générer le JWT via Lexik et récupérer le cookie (lastConnectionDate via JwtAuthenticationSubscriber)
             $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
-<<<<<<< Updated upstream
-            $response = new RedirectResponse($frontendUrl);
-=======
             $state = $request->query->get('state', '');
             $redirectUrl = $state === 'pro'
                 ? $frontendUrl . '/register/professional/onboarding'
                 : $frontendUrl;
 
             $response = new RedirectResponse($redirectUrl);
->>>>>>> Stashed changes
             foreach ($authResponse->headers->getCookies() as $cookie) {
                 $response->headers->setCookie($cookie);
             }
 
             return $response;
-
         } catch (\Throwable $e) {
             return new RedirectResponse($frontendUrl . '/login?error=google_auth_failed');
         }

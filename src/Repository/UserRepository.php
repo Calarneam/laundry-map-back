@@ -34,8 +34,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-<<<<<<< Updated upstream
-=======
     public function countPendingProfessionals(): int
     {
         return (int) $this->createQueryBuilder('u')
@@ -47,7 +45,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getSingleScalarResult();
     }
 
->>>>>>> Stashed changes
     public function findPendingProfessionals(): array
     {
         return $this->createQueryBuilder('u')
@@ -56,11 +53,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->setParameter('status', ProfessionalStatus::Pending)
             ->setParameter('newSince', new \DateTimeImmutable('-1 day'))
             ->select(
-<<<<<<< Updated upstream
-                "u.id, u.firstName, u.lastName, u.email, u.createdAt, p.siren, p.companyName,
-=======
                 "p.id, u.firstName, u.lastName, u.email, u.createdAt, p.siren, p.companyName,
->>>>>>> Stashed changes
                 CASE WHEN u.createdAt >= :newSince THEN true ELSE false END AS isNew"
             )
             ->getQuery()

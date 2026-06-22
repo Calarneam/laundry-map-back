@@ -6,10 +6,7 @@ use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
 use App\Entity\Enum\GeolocationStatus;
-<<<<<<< Updated upstream
-=======
 use App\Entity\Enum\LaundromatExceptionalClosureType;
->>>>>>> Stashed changes
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
@@ -50,12 +47,7 @@ class LaundromatFixtures extends Fixture implements DependentFixtureInterface
         $address->setZipCode(75013);
         $address->setCity('Paris');
         $address->setCountry('FR');
-<<<<<<< Updated upstream
-        $address->setLattitude('48.8323');
-        $address->setLongitude('2.3772');
-=======
         $address->setPosition(Address::point(2.3772, 48.8323));
->>>>>>> Stashed changes
         $address->setGeolocationStatus(GeolocationStatus::Geolocated);
         $manager->persist($address);
 
