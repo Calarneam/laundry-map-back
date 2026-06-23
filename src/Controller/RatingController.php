@@ -9,6 +9,7 @@ use App\Entity\Enum\Report;
 use App\Repository\LaundromatRepository;
 use App\Repository\LaundromatRatingRepository;
 use App\Repository\LaundromatRatingReportRepository;
+use App\Service\RatingSerializer;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -22,6 +23,7 @@ class RatingController extends AbstractApiController
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatRatingRepository $ratingRepository,
         private readonly LaundromatRatingReportRepository $reportRepository,
+        private readonly RatingSerializer $ratingSerializer,
     ) {}
 
     // GET /api/laundromat/{id}/ratings?limit=10&offset=0
@@ -39,11 +41,16 @@ class RatingController extends AbstractApiController
         $ratings = $this->ratingRepository->findByLaundromat($laundromat, $limit, $offset);
         $total   = $this->ratingRepository->countByLaundromat($laundromat);
 
+        $serializedRatings = [];
+        foreach ($ratings as $rating) {
+            $serializedRatings[] = $this->ratingSerializer->serializePublic($rating);
+        }
+
         return $this->json([
             'total'   => $total,
             'limit'   => $limit,
             'offset'  => $offset,
-            'ratings' => array_map(fn($r) => $this->serializeRating($r), $ratings),
+            'ratings' => $serializedRatings,
         ]);
     }
 
@@ -96,7 +103,7 @@ class RatingController extends AbstractApiController
         $em->persist($entity);
         $em->flush();
 
-        return $this->json($this->serializeRating($entity), Response::HTTP_CREATED);
+        return $this->json($this->ratingSerializer->serializePublic($entity), Response::HTTP_CREATED);
     }
 
     // PATCH /api/ratings/{id}
@@ -136,7 +143,7 @@ class RatingController extends AbstractApiController
         $em->flush();
 
         // RG0016 — average recalculated on next GET (computed dynamically)
-        return $this->json($this->serializeRating($rating));
+        return $this->json($this->ratingSerializer->serializePublic($rating));
     }
 
     // DELETE /api/ratings/{id}
@@ -208,24 +215,5 @@ class RatingController extends AbstractApiController
         $em->flush();
 
         return $this->json(['message' => 'api.messages.report_submitted'], Response::HTTP_CREATED);
-    }
-
-    private function serializeRating(LaundromatRating $r): array
-    {
-        $user = $r->getUser();
-        return [
-            'id'          => $r->getId(),
-            'rating'      => $r->getRating(),
-            'comment'     => $r->getComment(),
-            'ratedAt'     => $r->getRatedAt()?->format('Y-m-d'),
-            'commentedAt' => $r->getCommentedAt()?->format('Y-m-d'),
-            'response'    => $r->getResponse(),
-            'respondedAt' => $r->getRespondedAt()?->format('Y-m-d'),
-            'user'        => $user ? [
-                'id'        => $user->getId(),
-                'firstName' => method_exists($user, 'getFirstName') ? $user->getFirstName() : null,
-                'lastName'  => method_exists($user, 'getLastName')  ? $user->getLastName()  : null,
-            ] : null,
-        ];
     }
 }

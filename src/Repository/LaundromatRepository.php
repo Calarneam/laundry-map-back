@@ -5,7 +5,9 @@ namespace App\Repository;
 use App\Entity\Enum\GeolocationStatus;
 use App\Entity\Enum\LaundromatStatus;
 use App\Entity\Laundromat;
+use App\Entity\Professional;
 use App\Entity\User;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\DBAL\ArrayParameterType;
 use Doctrine\DBAL\Connection;
@@ -165,7 +167,9 @@ class LaundromatRepository extends ServiceEntityRepository
             $types['open_now_time'] = ParameterType::STRING;
         }
 
-        $sql .= 'ORDER BY distance_meters ASC LIMIT '.$limit;
+        $sql .= 'ORDER BY distance_meters ASC LIMIT :result_limit';
+        $params['result_limit'] = $limit;
+        $types['result_limit'] = ParameterType::INTEGER;
 
         $distanceRows = $this->getEntityManager()->getConnection()->executeQuery($sql, $params, $types)->fetchAllAssociative();
 
@@ -425,11 +429,36 @@ class LaundromatRepository extends ServiceEntityRepository
         }
     }
 
+    /**
+     * @return list<Laundromat>
+     */
+    public function findByProfessionalWithDetails(Professional $professional): array
+    {
+        $queryBuilder = $this->createQueryBuilder('l')
+            ->andWhere('l.professional = :professional')
+            ->andWhere('l.deletedAt IS NULL')
+            ->setParameter('professional', $professional)
+            ->orderBy('l.addedDate', 'DESC');
+
+        $this->applyLaundromatDetailsJoins($queryBuilder);
+
+        return $queryBuilder->getQuery()->getResult();
+    }
+
     public function findWithDetails(int $id): ?Laundromat
     {
-        return $this->createQueryBuilder('l')
+        $queryBuilder = $this->createQueryBuilder('l')
             ->where('l.id = :id')
-            ->setParameter('id', $id)
+            ->setParameter('id', $id);
+
+        $this->applyLaundromatDetailsJoins($queryBuilder);
+
+        return $queryBuilder->getQuery()->getOneOrNullResult();
+    }
+
+    private function applyLaundromatDetailsJoins(QueryBuilder $queryBuilder): void
+    {
+        $queryBuilder
             ->leftJoin('l.services', 's')
             ->addSelect('s')
             ->leftJoin('l.equipments', 'e')
@@ -438,8 +467,8 @@ class LaundromatRepository extends ServiceEntityRepository
             ->addSelect('pm')
             ->leftJoin('l.medias', 'm')
             ->addSelect('m')
-            ->leftJoin('l.ratings', 'r')
-            ->addSelect('r')
+            ->leftJoin('m.media', 'media')
+            ->addSelect('media')
             ->leftJoin('l.closures', 'c')
             ->addSelect('c')
             ->leftJoin('l.exceptionalClosures', 'ec')
@@ -447,8 +476,6 @@ class LaundromatRepository extends ServiceEntityRepository
             ->leftJoin('ec.openingHours', 'eoh')
             ->addSelect('eoh')
             ->leftJoin('l.address', 'a')
-            ->addSelect('a')
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->addSelect('a');
     }
 }

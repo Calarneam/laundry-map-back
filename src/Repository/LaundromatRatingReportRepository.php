@@ -28,7 +28,7 @@ class LaundromatRatingReportRepository extends ServiceEntityRepository
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return list<array<string, mixed>>
      */
     public function findGroupedOpenReports(): array
     {
@@ -43,55 +43,55 @@ class LaundromatRatingReportRepository extends ServiceEntityRepository
                 'author.email AS authorEmail',
                 'laundromat.id AS laundromatId',
                 'laundromat.establishmentName AS laundromatName',
-                'report.reason AS reportReason',
-                'report.date AS createdAt'
+                'MAX(report.reason) AS reportReason',
+                'COUNT(report.id) AS reportCount',
+                'MAX(report.date) AS createdAt',
             )
             ->join('report.rating', 'rating')
             ->join('rating.user', 'author')
             ->join('rating.laundromat', 'laundromat')
             ->andWhere('rating.commentDeletedAt IS NULL')
-            ->orderBy('report.date', 'DESC')
+            ->groupBy(
+                'rating.id',
+                'rating.comment',
+                'rating.rating',
+                'author.id',
+                'author.firstName',
+                'author.lastName',
+                'author.email',
+                'laundromat.id',
+                'laundromat.establishmentName',
+            )
+            ->orderBy('COUNT(report.id)', 'DESC')
+            ->addOrderBy('MAX(report.date)', 'DESC')
             ->getQuery()
             ->getArrayResult();
 
         $grouped = [];
         foreach ($rows as $row) {
             $ratingId = (int) $row['ratingId'];
-            if (!isset($grouped[$ratingId])) {
-                $grouped[$ratingId] = [
+            $grouped[] = [
+                'id' => $ratingId,
+                'rating' => [
                     'id' => $ratingId,
-                    'rating' => [
-                        'id' => $ratingId,
-                        'comment' => $row['ratingComment'],
-                        'score' => $row['ratingScore'],
-                        'author' => [
-                            'id' => (int) $row['authorId'],
-                            'firstName' => $row['authorFirstName'],
-                            'lastName' => $row['authorLastName'],
-                            'email' => $row['authorEmail'],
-                        ],
-                        'laundry' => [
-                            'id' => (int) $row['laundromatId'],
-                            'name' => $row['laundromatName'],
-                        ],
+                    'comment' => $row['ratingComment'],
+                    'score' => $row['ratingScore'],
+                    'author' => [
+                        'id' => (int) $row['authorId'],
+                        'firstName' => $row['authorFirstName'],
+                        'lastName' => $row['authorLastName'],
+                        'email' => $row['authorEmail'],
                     ],
-                    'reason' => $row['reportReason'],
-                    'reportCount' => 0,
-                    'createdAt' => $row['createdAt'],
-                ];
-            }
-
-            $grouped[$ratingId]['reportCount']++;
+                    'laundry' => [
+                        'id' => (int) $row['laundromatId'],
+                        'name' => $row['laundromatName'],
+                    ],
+                ],
+                'reason' => $row['reportReason'],
+                'reportCount' => (int) $row['reportCount'],
+                'createdAt' => $row['createdAt'],
+            ];
         }
-
-        usort($grouped, static function (array $left, array $right): int {
-            $countSort = $right['reportCount'] <=> $left['reportCount'];
-            if ($countSort !== 0) {
-                return $countSort;
-            }
-
-            return strcmp((string) $right['createdAt'], (string) $left['createdAt']);
-        });
 
         return $grouped;
     }

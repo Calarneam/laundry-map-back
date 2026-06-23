@@ -12,7 +12,6 @@ use App\Entity\Enum\GeolocationStatus;
 use App\Repository\UserRepository;
 use App\Repository\ProfessionalRepository;
 use Doctrine\ORM\EntityManagerInterface;
-use App\Controller\AbstractApiController;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -261,7 +260,6 @@ class AuthController extends AbstractApiController
 
         $user = $this->userRepository->findOneBy(['email' => $data['email']]);
 
-        // Always return success to prevent email enumeration
         if (!$user) {
             return $this->json(['message' => 'api.messages.reset_email_sent']);
         }

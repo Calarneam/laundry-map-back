@@ -6,6 +6,8 @@ use App\Entity\Laundromat;
 
 final class LaundromatNearbySerializer
 {
+    use LaundromatArrayBuilder;
+
     public const CACHE_TTL_SECONDS = 180;
 
     /**
@@ -15,57 +17,38 @@ final class LaundromatNearbySerializer
      */
     public function serializeRows(array $rows): array
     {
-        $out = [];
+        $serialized = [];
         foreach ($rows as $row) {
-            $out[] = $this->serializeOne(
+            $serialized[] = $this->serializeOne(
                 $row['laundromat'],
                 $row['distanceMeters'],
                 $row['averageRating'] ?? null,
             );
         }
 
-        return $out;
+        return $serialized;
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function serializeOne(Laundromat $l, float $distanceMeters, ?float $averageRating = null): array
+    public function serializeOne(Laundromat $laundromat, float $distanceMeters, ?float $averageRating = null): array
     {
-        $address = $l->getAddress();
-        $logo = $l->getLogo();
-
-        $openingHours = [];
-        foreach ($l->getClosures() ?? [] as $closure) {
-            $openingHours[] = [
-                'day' => $closure->getDay()?->value,
-                'startTime' => $closure->getStartTime()?->format('H:i'),
-                'endTime' => $closure->getEndTime()?->format('H:i'),
-            ];
-        }
-
-        $services = [];
-        foreach ($l->getServices() ?? [] as $service) {
-            $services[] = $service->getName();
-        }
-
-        $paymentMethods = [];
-        foreach ($l->getPaymentMethods() ?? [] as $pm) {
-            $paymentMethods[] = $pm->getName();
-        }
+        $address = $laundromat->getAddress();
+        $logo = $laundromat->getLogo();
 
         return [
-            'id' => $l->getId(),
-            'name' => $l->getEstablishmentName(),
-            'machineCount' => $l->getEquipments()->count(),
-            'openingHours' => $openingHours,
+            'id' => $laundromat->getId(),
+            'name' => $laundromat->getEstablishmentName(),
+            'machineCount' => $laundromat->getEquipments()->count(),
+            'openingHours' => $this->buildOpeningHours($laundromat),
             'position' => $address?->getPosition(),
             'address' => $address?->getAddress(),
             'image' => $logo?->getLocation(),
             'averageRating' => null !== $averageRating ? round($averageRating, 2) : null,
             'distanceMeters' => round($distanceMeters, 2),
-            'services' => $services,
-            'paymentMethods' => $paymentMethods,
+            'services' => $this->buildServiceNames($laundromat),
+            'paymentMethods' => $this->buildPaymentMethodNames($laundromat),
         ];
     }
 }

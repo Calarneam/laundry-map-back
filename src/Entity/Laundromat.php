@@ -67,6 +67,7 @@ class Laundromat
     private ?\DateTimeImmutable $updatedAt = null;
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE, nullable: true)]
+    #[Assert\DateTime]
     private ?\DateTimeImmutable $deletedAt = null;
 
     #[ORM\OneToMany(targetEntity: LaundromatMedia::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]

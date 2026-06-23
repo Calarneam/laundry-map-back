@@ -2,7 +2,6 @@
 
 namespace App\Controller;
 
-use App\Controller\AbstractApiController;
 use App\Entity\Administrator;
 use App\Entity\User;
 use App\Entity\Enum\UserType;
@@ -142,7 +141,7 @@ class ProfileController extends AbstractApiController
         }
 
         $this->entityManager->flush();
-        
+
         return $this->json([
             'message' => 'api.messages.fullname_updated',
         ], Response::HTTP_OK);
@@ -176,7 +175,6 @@ class ProfileController extends AbstractApiController
             mkdir($uploadDir, 0755, true);
         }
 
-        // Remove old avatar file if exists
         $oldUrl = $currentUser->getAvatarUrl();
         if ($oldUrl) {
             $oldPath = $this->getParameter('kernel.project_dir') . '/public' . $oldUrl;
@@ -202,7 +200,7 @@ class ProfileController extends AbstractApiController
     public function deleteAccount(): JsonResponse
     {
         $currentUser = $this->getUser();
-        
+
         $this->entityManager->remove($currentUser);
         $this->entityManager->flush();
 
@@ -229,5 +227,4 @@ class ProfileController extends AbstractApiController
 
         return $response;
     }
-
 }

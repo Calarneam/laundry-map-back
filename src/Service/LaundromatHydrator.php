@@ -195,13 +195,18 @@ class LaundromatHydrator
             return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
+        $serviceNames = [];
         foreach ($services as $serviceName) {
             if (!\is_string($serviceName) || trim($serviceName) === '') {
                 continue;
             }
+            $serviceNames[] = trim($serviceName);
+        }
 
-            $normalizedServiceName = trim($serviceName);
-            $service = $this->serviceRepository->findOneBy(['name' => $normalizedServiceName]);
+        $servicesByName = $this->serviceRepository->findIndexedByNames($serviceNames);
+
+        foreach ($serviceNames as $normalizedServiceName) {
+            $service = $servicesByName[$normalizedServiceName] ?? null;
 
             if (!$service instanceof Service) {
                 return $this->jsonError(self::MESSAGE_INVALID_SERVICE, Response::HTTP_BAD_REQUEST);
@@ -283,13 +288,18 @@ class LaundromatHydrator
             return $this->jsonError(self::MESSAGE_MISSING_FIELDS, Response::HTTP_BAD_REQUEST);
         }
 
+        $paymentMethodNames = [];
         foreach ($paymentMethods as $paymentMethodName) {
             if (!\is_string($paymentMethodName) || trim($paymentMethodName) === '') {
                 continue;
             }
+            $paymentMethodNames[] = trim($paymentMethodName);
+        }
 
-            $normalizedPaymentMethodName = trim($paymentMethodName);
-            $paymentMethod = $this->paymentMethodRepository->findOneBy(['name' => $normalizedPaymentMethodName]);
+        $paymentMethodsByName = $this->paymentMethodRepository->findIndexedByNames($paymentMethodNames);
+
+        foreach ($paymentMethodNames as $normalizedPaymentMethodName) {
+            $paymentMethod = $paymentMethodsByName[$normalizedPaymentMethodName] ?? null;
 
             if (!$paymentMethod instanceof PaymentMethod) {
                 return $this->jsonError(self::MESSAGE_INVALID_PAYMENT_METHOD, Response::HTTP_BAD_REQUEST);

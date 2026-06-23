@@ -16,28 +16,47 @@ class PaymentMethodRepository extends ServiceEntityRepository
         parent::__construct($registry, PaymentMethod::class);
     }
 
-    //    /**
-    //     * @return PaymentMethod[] Returns an array of PaymentMethod objects
-    //     */
-    //    public function findByExampleField($value): array
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->orderBy('p.id', 'ASC')
-    //            ->setMaxResults(10)
-    //            ->getQuery()
-    //            ->getResult()
-    //        ;
-    //    }
+    /**
+     * @return list<string>
+     */
+    public function findAllNames(): array
+    {
+        return $this->createQueryBuilder('pm')
+            ->select('pm.name')
+            ->orderBy('pm.name', 'ASC')
+            ->getQuery()
+            ->getSingleColumnResult();
+    }
 
-    //    public function findOneBySomeField($value): ?PaymentMethod
-    //    {
-    //        return $this->createQueryBuilder('p')
-    //            ->andWhere('p.exampleField = :val')
-    //            ->setParameter('val', $value)
-    //            ->getQuery()
-    //            ->getOneOrNullResult()
-    //        ;
-    //    }
+    /**
+     * @param list<string> $names
+     *
+     * @return array<string, PaymentMethod>
+     */
+    public function findIndexedByNames(array $names): array
+    {
+        $normalizedNames = array_values(array_unique(array_filter(
+            array_map(static fn (mixed $name): string => trim((string) $name), $names),
+            static fn (string $name): bool => $name !== '',
+        )));
+
+        if ($normalizedNames === []) {
+            return [];
+        }
+
+        $paymentMethods = $this->createQueryBuilder('pm')
+            ->andWhere('pm.name IN (:names)')
+            ->setParameter('names', $normalizedNames)
+            ->getQuery()
+            ->getResult();
+
+        $indexed = [];
+        foreach ($paymentMethods as $paymentMethod) {
+            if ($paymentMethod instanceof PaymentMethod) {
+                $indexed[$paymentMethod->getName()] = $paymentMethod;
+            }
+        }
+
+        return $indexed;
+    }
 }

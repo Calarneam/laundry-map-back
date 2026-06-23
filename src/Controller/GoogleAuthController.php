@@ -62,7 +62,6 @@ class GoogleAuthController extends AbstractApiController
         }
 
         try {
-            // 1. Échanger le code contre un access_token
             $tokenResponse = $this->httpClient->request('POST', 'https://oauth2.googleapis.com/token', [
                 'body' => [
                     'code' => $code,
@@ -76,7 +75,6 @@ class GoogleAuthController extends AbstractApiController
             $tokenData = $tokenResponse->toArray();
             $accessToken = $tokenData['access_token'];
 
-            // 2. Récupérer le profil utilisateur Google
             $userInfoResponse = $this->httpClient->request('GET', 'https://www.googleapis.com/oauth2/v3/userinfo', [
                 'headers' => [
                     'Authorization' => 'Bearer ' . $accessToken,
@@ -89,7 +87,6 @@ class GoogleAuthController extends AbstractApiController
             $firstName = $userInfo['given_name'] ?? null;
             $lastName = $userInfo['family_name'] ?? null;
 
-            // 3. Trouver ou créer l'utilisateur
             $user = $this->userRepository->findOneBy(['email' => $email]);
 
             if (!$user) {
@@ -139,7 +136,6 @@ class GoogleAuthController extends AbstractApiController
                 return new RedirectResponse($frontendUrl . '/login?error=account_restricted');
             }
 
-            // 4. Générer le JWT via Lexik et récupérer le cookie (lastConnectionDate via JwtAuthenticationSubscriber)
             $authResponse = $this->authenticationSuccessHandler->handleAuthenticationSuccess($user);
 
             $state = $request->query->get('state', '');
@@ -153,7 +149,6 @@ class GoogleAuthController extends AbstractApiController
             }
 
             return $response;
-
         } catch (\Throwable $e) {
             return new RedirectResponse($frontendUrl . '/login?error=google_auth_failed');
         }
