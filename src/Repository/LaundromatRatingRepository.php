@@ -26,7 +26,7 @@ class LaundromatRatingRepository extends ServiceEntityRepository
             ->where('r.laundromat = :laundromat')
             ->andWhere('r.commentDeletedAt IS NULL')
             ->setParameter('laundromat', $laundromat)
-            ->orderBy('COALESCE(r.commentedAt, r.ratedAt)', 'DESC')
+            ->orderBy('CASE WHEN r.commentedAt IS NOT NULL THEN r.commentedAt ELSE r.ratedAt END', 'DESC')
             ->setMaxResults($limit)
             ->setFirstResult($offset)
             ->getQuery()
@@ -51,7 +51,7 @@ class LaundromatRatingRepository extends ServiceEntityRepository
             ->addSelect('l')
             ->where('r.user = :user')
             ->setParameter('user', $user)
-            ->orderBy('COALESCE(r.commentedAt, r.ratedAt)', 'DESC')
+            ->orderBy('CASE WHEN r.commentedAt IS NOT NULL THEN r.commentedAt ELSE r.ratedAt END', 'DESC')
             ->getQuery()
             ->getResult();
     }
