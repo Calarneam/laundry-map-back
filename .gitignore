@@ -73,6 +73,8 @@ public/uploads/
 ###> docker ###
 /Dockerfile
 /docker-compose.yml
+/.dockerignore
+/docker/php/start.sh
 ###< docker ###
 
 /public/uploads/
