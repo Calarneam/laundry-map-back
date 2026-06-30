@@ -269,7 +269,40 @@ class LaundromatHydrator
             return $this->jsonError($this->messageForWebLinkType($type), Response::HTTP_BAD_REQUEST);
         }
 
+        if (!$this->matchesExpectedDomain($url, $type)) {
+            return $this->jsonError($this->messageForWebLinkType($type), Response::HTTP_BAD_REQUEST);
+        }
+
         return null;
+    }
+
+    private function matchesExpectedDomain(string $url, WebLinkType $type): bool
+    {
+        if ($type === WebLinkType::Website) {
+            return true;
+        }
+
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return false;
+        }
+
+        $normalizedHost = strtolower($host);
+
+        $allowedHosts = match ($type) {
+            WebLinkType::Facebook => ['facebook.com', 'fb.com'],
+            WebLinkType::Instagram => ['instagram.com'],
+            WebLinkType::X => ['x.com', 'twitter.com'],
+            WebLinkType::Linkedin => ['linkedin.com']
+        };
+
+        foreach ($allowedHosts as $allowedHost) {
+            if ($normalizedHost === $allowedHost || str_ends_with($normalizedHost, '.'.$allowedHost)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function syncServices(Laundromat $laundromat, mixed $services): ?JsonResponse
