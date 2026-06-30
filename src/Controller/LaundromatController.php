@@ -196,6 +196,13 @@ class LaundromatController extends AbstractApiController
                 'description' => $media->getDescription(),
             ], $laundromat->getMedias()->toArray()),
 
+            'socialLinks' => array_map(fn($socialLink) => [
+                'id' => $socialLink->getId(),
+                'type' => $socialLink->getType()?->getCode(),
+                'label' => $socialLink->getType()?->getLabel(),
+                'url' => $socialLink->getUrl(),
+            ], $laundromat->getSocialLinks()->toArray()),
+
             'averageRating' => $ratingStats['averageRating'],
             'ratingCount' => $ratingStats['ratingCount'],
 

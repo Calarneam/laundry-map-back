@@ -38,7 +38,7 @@ class LaundromatInteractionHistory
 
     #[ORM\Column(type: Types::DATE_IMMUTABLE)]
     #[Assert\NotNull]
-    #[Assert\DateTime]
+    #[Assert\Type(\DateTimeImmutable::class)]
     private ?\DateTimeImmutable $date = null;
 
     public function getId(): ?int

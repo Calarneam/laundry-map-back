@@ -24,8 +24,11 @@ jobs:
                     cd /var/www/laundrymap-back
                     git fetch origin
                     git reset --hard origin/main
-                    composer install --no-dev --optimize-autoloader
+                    composer install --no-dev --optimize-autoloader --no-scripts
+                    sudo rm -rf var/cache/prod var/cache/dev
                     php bin/console cache:clear --env=prod
+                    sudo mkdir -p public/uploads/laundry-photos public/uploads/avatars
+                    sudo chown -R www-data:www-data public/uploads
                     php bin/console doctrine:migrations:migrate --no-interaction --env=prod
                     php bin/console doctrine:schema:update --force --env=prod
                   EOF

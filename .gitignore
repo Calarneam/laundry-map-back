@@ -78,3 +78,5 @@ public/uploads/
 ###< docker ###
 
 /public/uploads/
+
+/docker/php/start.sh
