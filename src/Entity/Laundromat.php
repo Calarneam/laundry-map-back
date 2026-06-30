@@ -103,6 +103,9 @@ class Laundromat
     #[Assert\NotNull]
     private Collection $equipments;
 
+    #[ORM\OneToMany(targetEntity: LaundromatSocialLink::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'])]
+    private Collection $socialLinks;
+
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $pendingChanges = null;
 
@@ -115,6 +118,7 @@ class Laundromat
         $this->paymentMethods = new ArrayCollection();
         $this->ratings = new ArrayCollection();
         $this->equipments = new ArrayCollection();
+        $this->socialLinks = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -346,6 +350,28 @@ class Laundromat
     public function setEquipments(?Collection $equipments): static
     {
         $this->equipments = $equipments;
+
+        return $this;
+    }
+
+    public function getSocialLinks(): Collection
+    {
+        return $this->socialLinks;
+    }
+
+    public function addSocialLink(LaundromatSocialLink $socialLink): static
+    {
+        if (!$this->socialLinks->contains($socialLink)) {
+            $this->socialLinks->add($socialLink);
+            $socialLink->setLaundromat($this);
+        }
+
+        return $this;
+    }
+
+    public function removeSocialLink(LaundromatSocialLink $socialLink): static
+    {
+        $this->socialLinks->removeElement($socialLink);
 
         return $this;
     }

@@ -496,6 +496,10 @@ class ProfessionalLaundryController extends AbstractApiController
             'isOpenTwentyFourSeven' => $this->isOpenTwentyFourSeven($openingHours),
             'exceptionalClosures' => $exceptionalClosures,
             'photos' => $photos,
+            'socialLinks' => array_map(fn($link) => [
+                'type' => $link->getType()->value,
+                'url'  => $link->getUrl(),
+            ], $laundromat->getSocialLinks()->toArray()),
         ];
     }
 

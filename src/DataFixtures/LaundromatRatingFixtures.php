@@ -19,11 +19,11 @@ use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
  */
 class LaundromatRatingFixtures extends Fixture implements DependentFixtureInterface
 {
-    private const int REVIEWER_COUNT = 48;
+    private const REVIEWER_COUNT = 48;
 
-    private const int MIN_RATINGS_PER_LAUNDROMAT = 6;
+    private const MIN_RATINGS_PER_LAUNDROMAT = 6;
 
-    private const int MAX_RATINGS_PER_LAUNDROMAT = 16;
+    private const MAX_RATINGS_PER_LAUNDROMAT = 16;
 
     public function __construct(
         private readonly UserPasswordHasherInterface $passwordHasher,

@@ -6,10 +6,12 @@ use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
 use App\Entity\Enum\GeolocationStatus;
+use App\Entity\Enum\SocialLinkType;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
 use App\Entity\LaundromatMedia;
+use App\Entity\LaundromatSocialLink;
 use App\Entity\Media;
 use App\Entity\PaymentMethod;
 use App\Entity\Service;
@@ -36,6 +38,8 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+    private const MESSAGE_INVALID_SOCIAL_LINK = 'api.messages.invalid_social_link';
+    private const MESSAGE_INVALID_SOCIAL_LINK_TYPE = 'api.messages.invalid_social_link_type';
     private const EQUIPMENT_WASHER_WITH_CAPACITY = 'api.equipment.washer_with_capacity';
     private const EQUIPMENT_DRYER_WITH_CAPACITY = 'api.equipment.dryer_with_capacity';
     private const MEDIA_LAUNDRY_PHOTO = 'api.media.laundry_photo';
@@ -131,6 +135,11 @@ class LaundromatHydrator
             return $photosError;
         }
 
+        $socialLinksError = $this->syncSocialLinks($laundromat, $data['socialLinks'] ?? []);
+        if ($socialLinksError instanceof JsonResponse) {
+            return $socialLinksError;
+        }
+
         return $this->validateLaundromatGraph($laundromat, $address);
     }
 
@@ -180,6 +189,13 @@ class LaundromatHydrator
             $mediaError = $this->validationErrorResponse($mediaRelation->getMedia(), self::MESSAGE_INVALID_PHOTO);
             if ($mediaError instanceof JsonResponse) {
                 return $mediaError;
+            }
+        }
+
+        foreach ($laundromat->getSocialLinks() as $socialLink) {
+            $socialLinkError = $this->validationErrorResponse($socialLink, self::MESSAGE_INVALID_SOCIAL_LINK);
+            if ($socialLinkError instanceof JsonResponse) {
+                return $socialLinkError;
             }
         }
 
@@ -406,6 +422,43 @@ class LaundromatHydrator
 
             $laundromat->getMedias()->add($mediaRelation);
             $this->entityManager->persist($mediaRelation);
+        }
+
+        return null;
+    }
+
+    private function syncSocialLinks(Laundromat $laundromat, mixed $socialLinks): ?JsonResponse
+    {
+        $this->entityManager->createQuery(
+            'DELETE FROM App\Entity\LaundromatSocialLink l WHERE l.laundromat = :laundromat'
+        )
+            ->setParameter('laundromat', $laundromat)
+            ->execute();
+
+        $links = $laundromat->getSocialLinks();
+        $links->clear();
+
+        if (!\is_array($socialLinks) || $socialLinks === []) {
+            return null;
+        }
+
+        foreach ($socialLinks as $typeStr => $url) {
+            if (!\is_string($url) || trim($url) === '') {
+                continue;
+            }
+
+            $type = SocialLinkType::tryFrom((string) $typeStr);
+            if (!$type instanceof SocialLinkType) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK_TYPE, Response::HTTP_BAD_REQUEST);
+            }
+
+            $link = new LaundromatSocialLink();
+            $link->setLaundromat($laundromat);
+            $link->setType($type);
+            $link->setUrl(trim($url));
+
+            $links->add($link);
+            $this->entityManager->persist($link);
         }
 
         return null;
