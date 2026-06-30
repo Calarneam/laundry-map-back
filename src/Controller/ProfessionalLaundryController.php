@@ -195,6 +195,11 @@ class ProfessionalLaundryController extends AbstractApiController
             $status = $laundry->getStatus();
 
             if ($status === LaundromatStatus::Validated) {
+                $webLinksError = $this->laundromatHydrator->validateWebLinksPayload($data);
+                if ($webLinksError instanceof JsonResponse) {
+                    return $webLinksError;
+                }
+
                 $laundry->setPendingChanges($data);
                 $laundry->setUpdatedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
@@ -477,6 +482,7 @@ class ProfessionalLaundryController extends AbstractApiController
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
             'contactPhone' => $laundromat->getContactPhone(),
+            'webLinks' => $this->serializeWebLinks($laundromat),
             'wiLineReference' => $laundromat->getWiLineReference(),
             'status' => $laundromat->getStatus()?->value,
             'hasPendingChanges' => $laundromat->hasPendingChanges(),
@@ -517,6 +523,25 @@ class ProfessionalLaundryController extends AbstractApiController
         }
 
         return true;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function serializeWebLinks(Laundromat $laundromat): array
+    {
+        $webLinks = [];
+
+        foreach ($laundromat->getWebLinks() ?? [] as $webLink) {
+            $type = $webLink->getType();
+            $url = $webLink->getUrl();
+
+            if ($type !== null && $url !== null) {
+                $webLinks[$type->value] = $url;
+            }
+        }
+
+        return $webLinks;
     }
 
     private function upsertRatingResponse(int $laundromatId, int $ratingId, Request $request, bool $isUpdate): JsonResponse

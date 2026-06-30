@@ -430,6 +430,8 @@ class LaundromatRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('l')
             ->where('l.id = :id')
             ->setParameter('id', $id)
+            ->leftJoin('l.webLinks', 'wl')
+            ->addSelect('wl')
             ->leftJoin('l.services', 's')
             ->addSelect('s')
             ->leftJoin('l.equipments', 'e')

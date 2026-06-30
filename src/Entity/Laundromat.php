@@ -103,6 +103,10 @@ class Laundromat
     #[Assert\NotNull]
     private Collection $equipments;
 
+    #[ORM\OneToMany(targetEntity: WebLink::class, mappedBy: 'laundromat', cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[Assert\NotNull]
+    private Collection $webLinks;
+
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $pendingChanges = null;
 
@@ -115,6 +119,7 @@ class Laundromat
         $this->paymentMethods = new ArrayCollection();
         $this->ratings = new ArrayCollection();
         $this->equipments = new ArrayCollection();
+        $this->webLinks = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -346,6 +351,18 @@ class Laundromat
     public function setEquipments(?Collection $equipments): static
     {
         $this->equipments = $equipments;
+
+        return $this;
+    }
+
+    public function getWebLinks(): ?Collection
+    {
+        return $this->webLinks;
+    }
+
+    public function setWebLinks(?Collection $webLinks): static
+    {
+        $this->webLinks = $webLinks;
 
         return $this;
     }
