@@ -476,7 +476,7 @@ class ProfessionalLaundryController extends AbstractApiController
             $exceptionalClosures[] = $this->serializeExceptionalClosure($closure);
         }
 
-        return [
+        $data = [
             'id' => $laundromat->getId(),
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
@@ -503,6 +503,56 @@ class ProfessionalLaundryController extends AbstractApiController
             'exceptionalClosures' => $exceptionalClosures,
             'photos' => $photos,
         ];
+
+        return $this->applyPendingChangesToSerializedLaundry($data, $laundromat->getPendingChanges());
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, mixed>|null $pendingChanges
+     * @return array<string, mixed>
+     */
+    private function applyPendingChangesToSerializedLaundry(array $data, ?array $pendingChanges): array
+    {
+        if (!is_array($pendingChanges) || $pendingChanges === []) {
+            return $data;
+        }
+
+        foreach (['establishmentName', 'description', 'contactEmail', 'contactPhone', 'services', 'paymentMethods', 'machines', 'openingHours', 'webLinks'] as $field) {
+            if (array_key_exists($field, $pendingChanges)) {
+                $data[$field] = $pendingChanges[$field];
+            }
+        }
+
+        if (array_key_exists('wiLineClientCode', $pendingChanges)) {
+            $data['wiLineReference'] = $pendingChanges['wiLineClientCode'];
+        }
+
+        if (
+            array_key_exists('street', $pendingChanges)
+            || array_key_exists('zipCode', $pendingChanges)
+            || array_key_exists('city', $pendingChanges)
+            || array_key_exists('country', $pendingChanges)
+        ) {
+            $street = isset($pendingChanges['street']) ? (string) $pendingChanges['street'] : (string) ($data['address']['street'] ?? '');
+            $zipCode = isset($pendingChanges['zipCode']) ? $pendingChanges['zipCode'] : ($data['address']['zipCode'] ?? null);
+            $city = isset($pendingChanges['city']) ? (string) $pendingChanges['city'] : (string) ($data['address']['city'] ?? '');
+            $country = isset($pendingChanges['country']) ? (string) $pendingChanges['country'] : (string) ($data['address']['country'] ?? '');
+
+            $data['address'] = [
+                'street' => $street,
+                'zipCode' => $zipCode,
+                'city' => $city,
+                'country' => $country,
+                'fullAddress' => trim(sprintf('%s, %s %s, %s', $street, (string) $zipCode, $city, $country), ', '),
+            ];
+        }
+
+        if (array_key_exists('isOpenTwentyFourSeven', $pendingChanges)) {
+            $data['isOpenTwentyFourSeven'] = (bool) $pendingChanges['isOpenTwentyFourSeven'];
+        }
+
+        return $data;
     }
 
     private function isOpenTwentyFourSeven(array $openingHours): bool
