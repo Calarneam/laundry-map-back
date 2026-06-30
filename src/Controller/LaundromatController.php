@@ -156,12 +156,21 @@ class LaundromatController extends AbstractApiController
             }
         }
 
+        $socialLinks = array_filter([
+            'website' => $laundromat->getWebsiteUrl(),
+            'facebook' => $laundromat->getFacebookUrl(),
+            'instagram' => $laundromat->getInstagramUrl(),
+            'x' => $laundromat->getXUrl(),
+            'linkedin' => $laundromat->getLinkedinUrl(),
+        ], static fn (?string $url): bool => $url !== null && $url !== '');
+
         return [
             'id' => $laundromat->getId(),
             'establishmentName' => $laundromat->getEstablishmentName(),
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
             'contactPhone' => $laundromat->getContactPhone(),
+            'socialLinks' => $socialLinks,
             'wiLineReference' => $laundromat->getWiLineReference(),
 
             'address' => $laundromat->getAddress() ? [

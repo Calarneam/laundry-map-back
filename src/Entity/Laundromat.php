@@ -53,6 +53,31 @@ class Laundromat
     #[Assert\Length(max: 20)]
     private ?string $contactPhone = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[Assert\Url(protocols: ['https'])]
+    private ?string $websiteUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[Assert\Url(protocols: ['https'])]
+    private ?string $facebookUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[Assert\Url(protocols: ['https'])]
+    private ?string $instagramUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[Assert\Url(protocols: ['https'])]
+    private ?string $xUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Assert\Length(max: 255)]
+    #[Assert\Url(protocols: ['https'])]
+    private ?string $linkedinUrl = null;
+
     #[ORM\Column(type: Types::TEXT)]
     #[Assert\Length(max: 570)]
     #[Assert\NotBlank]
@@ -214,6 +239,66 @@ class Laundromat
     public function setContactPhone(?string $contactPhone): static
     {
         $this->contactPhone = $contactPhone;
+
+        return $this;
+    }
+
+    public function getWebsiteUrl(): ?string
+    {
+        return $this->websiteUrl;
+    }
+
+    public function setWebsiteUrl(?string $websiteUrl): static
+    {
+        $this->websiteUrl = $websiteUrl;
+
+        return $this;
+    }
+
+    public function getFacebookUrl(): ?string
+    {
+        return $this->facebookUrl;
+    }
+
+    public function setFacebookUrl(?string $facebookUrl): static
+    {
+        $this->facebookUrl = $facebookUrl;
+
+        return $this;
+    }
+
+    public function getInstagramUrl(): ?string
+    {
+        return $this->instagramUrl;
+    }
+
+    public function setInstagramUrl(?string $instagramUrl): static
+    {
+        $this->instagramUrl = $instagramUrl;
+
+        return $this;
+    }
+
+    public function getXUrl(): ?string
+    {
+        return $this->xUrl;
+    }
+
+    public function setXUrl(?string $xUrl): static
+    {
+        $this->xUrl = $xUrl;
+
+        return $this;
+    }
+
+    public function getLinkedinUrl(): ?string
+    {
+        return $this->linkedinUrl;
+    }
+
+    public function setLinkedinUrl(?string $linkedinUrl): static
+    {
+        $this->linkedinUrl = $linkedinUrl;
 
         return $this;
     }

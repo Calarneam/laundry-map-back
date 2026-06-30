@@ -36,6 +36,20 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+    private const string MESSAGE_INVALID_SOCIAL_URL = 'api.messages.invalid_social_url';
+
+    /**
+     * Domaines autorisés par type de lien (vide = aucune restriction, ex. site web).
+     *
+     * @var array<string, list<string>>
+     */
+    private const array SOCIAL_ALLOWED_HOSTS = [
+        'website' => [],
+        'facebook' => ['facebook.com', 'fb.com', 'fb.me'],
+        'instagram' => ['instagram.com', 'instagr.am'],
+        'x' => ['x.com', 'twitter.com'],
+        'linkedin' => ['linkedin.com', 'lnkd.in'],
+    ];
     private const EQUIPMENT_WASHER_WITH_CAPACITY = 'api.equipment.washer_with_capacity';
     private const EQUIPMENT_DRYER_WITH_CAPACITY = 'api.equipment.dryer_with_capacity';
     private const MEDIA_LAUNDRY_PHOTO = 'api.media.laundry_photo';
@@ -96,6 +110,24 @@ class LaundromatHydrator
         $laundromat->setContactEmail(isset($data['contactEmail']) && \is_string($data['contactEmail']) ? trim($data['contactEmail']) : null);
         $laundromat->setContactPhone(isset($data['contactPhone']) && \is_string($data['contactPhone']) ? trim($data['contactPhone']) : null);
         $laundromat->setUpdatedAt($now);
+
+        $socialLinks = \is_array($data['socialLinks'] ?? null) ? $data['socialLinks'] : [];
+        $laundromat->setWebsiteUrl($this->normalizeUrl($socialLinks, 'website'));
+        $laundromat->setFacebookUrl($this->normalizeUrl($socialLinks, 'facebook'));
+        $laundromat->setInstagramUrl($this->normalizeUrl($socialLinks, 'instagram'));
+        $laundromat->setXUrl($this->normalizeUrl($socialLinks, 'x'));
+        $laundromat->setLinkedinUrl($this->normalizeUrl($socialLinks, 'linkedin'));
+
+        $socialHostError = $this->validateSocialHosts([
+            'website' => $laundromat->getWebsiteUrl(),
+            'facebook' => $laundromat->getFacebookUrl(),
+            'instagram' => $laundromat->getInstagramUrl(),
+            'x' => $laundromat->getXUrl(),
+            'linkedin' => $laundromat->getLinkedinUrl(),
+        ]);
+        if ($socialHostError instanceof JsonResponse) {
+            return $socialHostError;
+        }
 
         if ($laundromat->getAddedDate() === null) {
             $laundromat->setAddedDate($now);
@@ -428,6 +460,65 @@ class LaundromatHydrator
         }
 
         return $this->jsonError($message, Response::HTTP_BAD_REQUEST);
+    }
+
+    /**
+     * Vérifie que chaque lien renseigné pointe vers un domaine légitime du réseau.
+     * Empêche `facebook.com.evil.com` (sous-domaine d'evil.com) et `evilfacebook.com`.
+     *
+     * @param array<string, ?string> $links
+     */
+    private function validateSocialHosts(array $links): ?JsonResponse
+    {
+        foreach ($links as $key => $url) {
+            if ($url === null) {
+                continue;
+            }
+
+            $allowedHosts = self::SOCIAL_ALLOWED_HOSTS[$key] ?? [];
+            if ($allowedHosts === []) {
+                continue;
+            }
+
+            $host = parse_url($url, PHP_URL_HOST);
+            if (!\is_string($host) || $host === '') {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_URL, Response::HTTP_BAD_REQUEST);
+            }
+
+            $host = strtolower($host);
+            if (str_starts_with($host, 'www.')) {
+                $host = substr($host, 4);
+            }
+
+            $matches = false;
+            foreach ($allowedHosts as $allowedHost) {
+                if ($host === $allowedHost || str_ends_with($host, '.' . $allowedHost)) {
+                    $matches = true;
+                    break;
+                }
+            }
+
+            if (!$matches) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_URL, Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $socialLinks
+     */
+    private function normalizeUrl(array $socialLinks, string $key): ?string
+    {
+        $value = $socialLinks[$key] ?? null;
+        if (!\is_string($value)) {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        return $trimmed !== '' ? $trimmed : null;
     }
 
     private function jsonError(string $error, int $status): JsonResponse
