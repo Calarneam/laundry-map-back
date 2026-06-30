@@ -162,6 +162,7 @@ class LaundromatController extends AbstractApiController
             'description' => $laundromat->getDescription(),
             'contactEmail' => $laundromat->getContactEmail(),
             'contactPhone' => $laundromat->getContactPhone(),
+            'webLinks' => $this->serializeWebLinks($laundromat),
             'wiLineReference' => $laundromat->getWiLineReference(),
 
             'address' => $laundromat->getAddress() ? [
@@ -206,6 +207,25 @@ class LaundromatController extends AbstractApiController
                 'createdAt' => $rating->getRatedAt()?->format('Y-m-d H:i:s'),
             ], $laundromat->getRatings()->toArray()),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function serializeWebLinks(Laundromat $laundromat): array
+    {
+        $webLinks = [];
+
+        foreach ($laundromat->getWebLinks() ?? [] as $webLink) {
+            $type = $webLink->getType();
+            $url = $webLink->getUrl();
+
+            if ($type !== null && $url !== null) {
+                $webLinks[$type->value] = $url;
+            }
+        }
+
+        return $webLinks;
     }
 
     /**

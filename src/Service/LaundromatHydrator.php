@@ -6,6 +6,7 @@ use App\Entity\Address;
 use App\Entity\Enum\Day;
 use App\Entity\Enum\Equipment;
 use App\Entity\Enum\GeolocationStatus;
+use App\Entity\Enum\WebLinkType;
 use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
@@ -13,6 +14,7 @@ use App\Entity\LaundromatMedia;
 use App\Entity\Media;
 use App\Entity\PaymentMethod;
 use App\Entity\Service;
+use App\Entity\WebLink;
 use App\Repository\PaymentMethodRepository;
 use App\Repository\ServiceRepository;
 use Doctrine\Common\Collections\Collection;
@@ -20,6 +22,7 @@ use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\Validator\Constraints as Assert;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class LaundromatHydrator
@@ -36,6 +39,11 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+    private const MESSAGE_INVALID_WEBSITE_URL = 'api.messages.invalid_website_url';
+    private const MESSAGE_INVALID_FACEBOOK_URL = 'api.messages.invalid_facebook_url';
+    private const MESSAGE_INVALID_INSTAGRAM_URL = 'api.messages.invalid_instagram_url';
+    private const MESSAGE_INVALID_X_URL = 'api.messages.invalid_x_url';
+    private const MESSAGE_INVALID_LINKEDIN_URL = 'api.messages.invalid_linkedin_url';
     private const EQUIPMENT_WASHER_WITH_CAPACITY = 'api.equipment.washer_with_capacity';
     private const EQUIPMENT_DRYER_WITH_CAPACITY = 'api.equipment.dryer_with_capacity';
     private const MEDIA_LAUNDRY_PHOTO = 'api.media.laundry_photo';
@@ -131,6 +139,11 @@ class LaundromatHydrator
             return $photosError;
         }
 
+        $webLinksError = $this->syncWebLinks($laundromat, $data['webLinks'] ?? []);
+        if ($webLinksError instanceof JsonResponse) {
+            return $webLinksError;
+        }
+
         return $this->validateLaundromatGraph($laundromat, $address);
     }
 
@@ -143,6 +156,42 @@ class LaundromatHydrator
         $logo->setMimeType('image/png');
 
         return $logo;
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function validateWebLinksPayload(array $data): ?JsonResponse
+    {
+        $webLinks = $data['webLinks'] ?? [];
+        if ($webLinks === null) {
+            $webLinks = [];
+        }
+
+        if (!\is_array($webLinks)) {
+            return $this->jsonError(self::MESSAGE_INVALID_LAUNDROMAT, Response::HTTP_BAD_REQUEST);
+        }
+
+        foreach (array_keys($webLinks) as $typeValue) {
+            if (!\is_string($typeValue) || WebLinkType::tryFrom($typeValue) === null) {
+                return $this->jsonError(self::MESSAGE_INVALID_LAUNDROMAT, Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        foreach (WebLinkType::cases() as $type) {
+            $rawUrl = $webLinks[$type->value] ?? null;
+            $url = \is_string($rawUrl) ? trim($rawUrl) : '';
+            if ($url === '') {
+                continue;
+            }
+
+            $webLinkError = $this->urlValidationErrorResponse($url, $type);
+            if ($webLinkError instanceof JsonResponse) {
+                return $webLinkError;
+            }
+        }
+
+        return null;
     }
 
     private function validateLaundromatGraph(Laundromat $laundromat, Address $address): ?JsonResponse
@@ -183,7 +232,77 @@ class LaundromatHydrator
             }
         }
 
+        foreach ($laundromat->getWebLinks() as $webLink) {
+            $type = $webLink->getType();
+            $webLinkError = $this->validationErrorResponse(
+                $webLink,
+                $type instanceof WebLinkType ? $this->messageForWebLinkType($type) : self::MESSAGE_INVALID_LAUNDROMAT,
+            );
+            if ($webLinkError instanceof JsonResponse) {
+                return $webLinkError;
+            }
+        }
+
         return null;
+    }
+
+    private function messageForWebLinkType(WebLinkType $type): string
+    {
+        return match ($type) {
+            WebLinkType::Website => self::MESSAGE_INVALID_WEBSITE_URL,
+            WebLinkType::Facebook => self::MESSAGE_INVALID_FACEBOOK_URL,
+            WebLinkType::Instagram => self::MESSAGE_INVALID_INSTAGRAM_URL,
+            WebLinkType::X => self::MESSAGE_INVALID_X_URL,
+            WebLinkType::Linkedin => self::MESSAGE_INVALID_LINKEDIN_URL,
+        };
+    }
+
+    private function urlValidationErrorResponse(string $url, WebLinkType $type): ?JsonResponse
+    {
+        $violations = $this->validator->validate($url, [
+            new Assert\NotBlank(),
+            new Assert\Length(max: 255),
+            new Assert\Url(),
+        ]);
+
+        if (count($violations) > 0) {
+            return $this->jsonError($this->messageForWebLinkType($type), Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$this->matchesExpectedDomain($url, $type)) {
+            return $this->jsonError($this->messageForWebLinkType($type), Response::HTTP_BAD_REQUEST);
+        }
+
+        return null;
+    }
+
+    private function matchesExpectedDomain(string $url, WebLinkType $type): bool
+    {
+        if ($type === WebLinkType::Website) {
+            return true;
+        }
+
+        $host = parse_url($url, PHP_URL_HOST);
+        if (!is_string($host) || $host === '') {
+            return false;
+        }
+
+        $normalizedHost = strtolower($host);
+
+        $allowedHosts = match ($type) {
+            WebLinkType::Facebook => ['facebook.com', 'fb.com'],
+            WebLinkType::Instagram => ['instagram.com'],
+            WebLinkType::X => ['x.com', 'twitter.com'],
+            WebLinkType::Linkedin => ['linkedin.com']
+        };
+
+        foreach ($allowedHosts as $allowedHost) {
+            if ($normalizedHost === $allowedHost || str_ends_with($normalizedHost, '.'.$allowedHost)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function syncServices(Laundromat $laundromat, mixed $services): ?JsonResponse
@@ -350,6 +469,56 @@ class LaundromatHydrator
 
             $equipments?->add($equipment);
             $this->entityManager->persist($equipment);
+        }
+
+        return null;
+    }
+
+    private function syncWebLinks(Laundromat $laundromat, mixed $webLinks): ?JsonResponse
+    {
+        $webLinksError = $this->validateWebLinksPayload(['webLinks' => $webLinks]);
+        if ($webLinksError instanceof JsonResponse) {
+            return $webLinksError;
+        }
+
+        if ($webLinks === null) {
+            $webLinks = [];
+        }
+
+        $collection = $laundromat->getWebLinks();
+        $existingByType = [];
+        if ($collection instanceof Collection) {
+            foreach ($collection as $existingWebLink) {
+                $type = $existingWebLink->getType();
+                if ($type instanceof WebLinkType) {
+                    $existingByType[$type->value] = $existingWebLink;
+                }
+            }
+        }
+
+        foreach (WebLinkType::cases() as $type) {
+            $rawUrl = $webLinks[$type->value] ?? null;
+            $url = \is_string($rawUrl) ? trim($rawUrl) : '';
+
+            if ($url === '') {
+                if (isset($existingByType[$type->value])) {
+                    $this->entityManager->remove($existingByType[$type->value]);
+                    $collection?->removeElement($existingByType[$type->value]);
+                }
+
+                continue;
+            }
+
+            $webLink = $existingByType[$type->value] ?? new WebLink();
+            $webLink->setLaundromat($laundromat);
+            $webLink->setType($type);
+            $webLink->setUrl($url);
+
+            if (!isset($existingByType[$type->value])) {
+                $collection?->add($webLink);
+            }
+
+            $this->entityManager->persist($webLink);
         }
 
         return null;
