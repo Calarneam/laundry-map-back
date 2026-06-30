@@ -14,6 +14,7 @@ use App\Entity\Professional;
 use App\Entity\User;
 use App\Repository\LaundromatRepository;
 use App\Repository\LaundromatRatingRepository;
+use App\Repository\SocialLinkTypeRepository;
 use App\Service\LaundromatHydrator;
 use App\Service\WiLineApiService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -33,6 +34,7 @@ class ProfessionalLaundryController extends AbstractApiController
         private readonly EntityManagerInterface $entityManager,
         private readonly LaundromatRepository $laundromatRepository,
         private readonly LaundromatRatingRepository $ratingRepository,
+        private readonly SocialLinkTypeRepository $socialLinkTypeRepository,
         private readonly LaundromatHydrator $laundromatHydrator,
         private readonly WiLineApiService $wiLineApiService,
         private readonly MailerInterface $mailer,
@@ -195,6 +197,13 @@ class ProfessionalLaundryController extends AbstractApiController
             $status = $laundry->getStatus();
 
             if ($status === LaundromatStatus::Validated) {
+                if (array_key_exists('socialLinks', $data)) {
+                    $socialLinksError = $this->laundromatHydrator->validateSocialLinksPayload($data['socialLinks']);
+                    if ($socialLinksError instanceof JsonResponse) {
+                        return $socialLinksError;
+                    }
+                }
+
                 $laundry->setPendingChanges($data);
                 $laundry->setUpdatedAt(new \DateTimeImmutable());
                 $this->entityManager->flush();
@@ -466,6 +475,22 @@ class ProfessionalLaundryController extends AbstractApiController
             ];
         }
 
+        $socialLinks = [];
+        $pendingChanges = $laundromat->getPendingChanges();
+        if (is_array($pendingChanges) && array_key_exists('socialLinks', $pendingChanges)) {
+            $socialLinks = $this->serializePendingSocialLinks($pendingChanges['socialLinks']);
+        } else {
+            foreach ($laundromat->getSocialLinks() ?? [] as $socialLink) {
+                $type = $socialLink->getType();
+                $socialLinks[] = [
+                    'id' => $socialLink->getId(),
+                    'type' => $type?->getCode(),
+                    'label' => $type?->getLabel(),
+                    'url' => $socialLink->getUrl(),
+                ];
+            }
+        }
+
         $exceptionalClosures = [];
         foreach ($laundromat->getExceptionalClosures() ?? [] as $closure) {
             $exceptionalClosures[] = $this->serializeExceptionalClosure($closure);
@@ -496,6 +521,7 @@ class ProfessionalLaundryController extends AbstractApiController
             'isOpenTwentyFourSeven' => $this->isOpenTwentyFourSeven($openingHours),
             'exceptionalClosures' => $exceptionalClosures,
             'photos' => $photos,
+            'socialLinks' => $socialLinks,
         ];
     }
 
@@ -517,6 +543,39 @@ class ProfessionalLaundryController extends AbstractApiController
         }
 
         return true;
+    }
+
+    private function serializePendingSocialLinks(mixed $socialLinks): array
+    {
+        if (!is_array($socialLinks)) {
+            return [];
+        }
+
+        $serialized = [];
+        foreach ($socialLinks as $socialLink) {
+            if (!is_array($socialLink)) {
+                continue;
+            }
+
+            $typeCode = $socialLink['type'] ?? $socialLink['typeCode'] ?? $socialLink['code'] ?? null;
+            $url = $socialLink['url'] ?? null;
+
+            if (!is_string($typeCode) || !is_string($url)) {
+                continue;
+            }
+
+            $typeCode = strtolower(trim($typeCode));
+            $type = $this->socialLinkTypeRepository->findOneBy(['code' => $typeCode]);
+
+            $serialized[] = [
+                'id' => null,
+                'type' => $typeCode,
+                'label' => $type?->getLabel(),
+                'url' => trim($url),
+            ];
+        }
+
+        return $serialized;
     }
 
     private function upsertRatingResponse(int $laundromatId, int $ratingId, Request $request, bool $isUpdate): JsonResponse

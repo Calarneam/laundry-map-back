@@ -10,11 +10,14 @@ use App\Entity\Laundromat;
 use App\Entity\LaundromatClosure;
 use App\Entity\LaundromatEquipment;
 use App\Entity\LaundromatMedia;
+use App\Entity\LaundromatSocialLink;
 use App\Entity\Media;
 use App\Entity\PaymentMethod;
 use App\Entity\Service;
+use App\Entity\SocialLinkType;
 use App\Repository\PaymentMethodRepository;
 use App\Repository\ServiceRepository;
+use App\Repository\SocialLinkTypeRepository;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -36,6 +39,9 @@ class LaundromatHydrator
     private const MESSAGE_INVALID_LAUNDROMAT_CLOSURE = 'api.messages.invalid_laundromat_closure';
     private const MESSAGE_INVALID_LAUNDROMAT_EQUIPMENT = 'api.messages.invalid_laundromat_equipment';
     private const MESSAGE_INVALID_LAUNDROMAT_MEDIA = 'api.messages.invalid_laundromat_media';
+    private const MESSAGE_INVALID_SOCIAL_LINK = 'api.messages.invalid_social_link';
+    private const MESSAGE_INVALID_SOCIAL_LINK_TYPE = 'api.messages.invalid_social_link_type';
+    private const MESSAGE_DUPLICATE_SOCIAL_LINK_TYPE = 'api.messages.duplicate_social_link_type';
     private const EQUIPMENT_WASHER_WITH_CAPACITY = 'api.equipment.washer_with_capacity';
     private const EQUIPMENT_DRYER_WITH_CAPACITY = 'api.equipment.dryer_with_capacity';
     private const MEDIA_LAUNDRY_PHOTO = 'api.media.laundry_photo';
@@ -45,6 +51,7 @@ class LaundromatHydrator
         private readonly ValidatorInterface $validator,
         private readonly ServiceRepository $serviceRepository,
         private readonly PaymentMethodRepository $paymentMethodRepository,
+        private readonly SocialLinkTypeRepository $socialLinkTypeRepository,
     ) {}
 
     /**
@@ -131,7 +138,19 @@ class LaundromatHydrator
             return $photosError;
         }
 
+        if (array_key_exists('socialLinks', $data)) {
+            $socialLinksError = $this->syncSocialLinks($laundromat, $data['socialLinks']);
+            if ($socialLinksError instanceof JsonResponse) {
+                return $socialLinksError;
+            }
+        }
+
         return $this->validateLaundromatGraph($laundromat, $address);
+    }
+
+    public function validateSocialLinksPayload(mixed $socialLinks): ?JsonResponse
+    {
+        return $this->validateSocialLinks($socialLinks);
     }
 
     public function createPlaceholderLogo(): Media
@@ -180,6 +199,13 @@ class LaundromatHydrator
             $mediaError = $this->validationErrorResponse($mediaRelation->getMedia(), self::MESSAGE_INVALID_PHOTO);
             if ($mediaError instanceof JsonResponse) {
                 return $mediaError;
+            }
+        }
+
+        foreach ($laundromat->getSocialLinks() as $socialLink) {
+            $socialLinkError = $this->validationErrorResponse($socialLink, self::MESSAGE_INVALID_SOCIAL_LINK);
+            if ($socialLinkError instanceof JsonResponse) {
+                return $socialLinkError;
             }
         }
 
@@ -353,6 +379,140 @@ class LaundromatHydrator
         }
 
         return null;
+    }
+
+    private function syncSocialLinks(Laundromat $laundromat, mixed $socialLinks): ?JsonResponse
+    {
+        $validationError = $this->validateSocialLinks($socialLinks);
+        if ($validationError instanceof JsonResponse) {
+            return $validationError;
+        }
+
+        if (!\is_array($socialLinks)) {
+            return null;
+        }
+
+        $links = $laundromat->getSocialLinks();
+        $existingLinksByType = [];
+        if ($links instanceof Collection) {
+            foreach ($links as $link) {
+                if (!$link instanceof LaundromatSocialLink) {
+                    continue;
+                }
+
+                $typeCode = $link->getType()?->getCode();
+                if ($typeCode !== null) {
+                    $existingLinksByType[$typeCode] = $link;
+                }
+            }
+        }
+
+        $submittedTypeCodes = [];
+
+        foreach ($socialLinks as $socialLink) {
+            if (!\is_array($socialLink)) {
+                continue;
+            }
+
+            $typeCode = $this->extractSocialLinkTypeCode($socialLink);
+            $url = trim((string) ($socialLink['url'] ?? ''));
+
+            if ($typeCode === null || $url === '') {
+                continue;
+            }
+
+            $type = $this->socialLinkTypeRepository->findOneBy(['code' => $typeCode]);
+            if (!$type instanceof SocialLinkType) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK_TYPE, Response::HTTP_BAD_REQUEST);
+            }
+
+            $submittedTypeCodes[$typeCode] = true;
+
+            $link = $existingLinksByType[$typeCode] ?? null;
+            if (!$link instanceof LaundromatSocialLink) {
+                $link = new LaundromatSocialLink();
+                $link->setLaundromat($laundromat);
+                $link->setType($type);
+                $links?->add($link);
+                $this->entityManager->persist($link);
+            }
+
+            $link->setUrl($url);
+        }
+
+        if ($links instanceof Collection) {
+            foreach ($links as $link) {
+                if (!$link instanceof LaundromatSocialLink) {
+                    continue;
+                }
+
+                $typeCode = $link->getType()?->getCode();
+                if ($typeCode !== null && !isset($submittedTypeCodes[$typeCode])) {
+                    $links->removeElement($link);
+                    $this->entityManager->remove($link);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function validateSocialLinks(mixed $socialLinks): ?JsonResponse
+    {
+        if ($socialLinks === null || $socialLinks === '') {
+            return null;
+        }
+
+        if (!\is_array($socialLinks)) {
+            return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK, Response::HTTP_BAD_REQUEST);
+        }
+
+        $seenTypes = [];
+
+        foreach ($socialLinks as $socialLink) {
+            if (!\is_array($socialLink)) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK, Response::HTTP_BAD_REQUEST);
+            }
+
+            $typeCode = $this->extractSocialLinkTypeCode($socialLink);
+            $url = trim((string) ($socialLink['url'] ?? ''));
+
+            if ($typeCode === null || $url === '') {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK, Response::HTTP_BAD_REQUEST);
+            }
+
+            if (isset($seenTypes[$typeCode])) {
+                return $this->jsonError(self::MESSAGE_DUPLICATE_SOCIAL_LINK_TYPE, Response::HTTP_BAD_REQUEST);
+            }
+            $seenTypes[$typeCode] = true;
+
+            $type = $this->socialLinkTypeRepository->findOneBy(['code' => $typeCode]);
+            if (!$type instanceof SocialLinkType) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK_TYPE, Response::HTTP_BAD_REQUEST);
+            }
+
+            $regex = $type->getValidationRegex();
+            if ($regex === null || @preg_match($regex, '') === false || preg_match($regex, $url) !== 1) {
+                return $this->jsonError(self::MESSAGE_INVALID_SOCIAL_LINK, Response::HTTP_BAD_REQUEST);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $socialLink
+     */
+    private function extractSocialLinkTypeCode(array $socialLink): ?string
+    {
+        $type = $socialLink['type'] ?? $socialLink['typeCode'] ?? $socialLink['code'] ?? null;
+        if (!\is_string($type)) {
+            return null;
+        }
+
+        $type = strtolower(trim($type));
+
+        return $type !== '' ? $type : null;
     }
 
     /**
